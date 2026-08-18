@@ -1,2 +1,647 @@
-# AIOS
-AIOS is a simulated Multiprogramming Operating System designed to demonstrate the fundamental concepts of Operating Systems while extending them to support simulated autonomous AI agents.
+# AIOS — AI-Powered Multiprogramming Operating System Simulator
+
+> A C++-based educational operating-system simulator that demonstrates classical OS mechanisms and extends them with simulated AI-agent workloads.
+
+---
+
+## 🧠 What is AIOS?
+
+**AIOS** is an interactive multiprogramming Operating System simulator designed to make core OS concepts observable and demonstrable.
+
+Instead of implementing each Operating System concept as an isolated program, AIOS combines them into a single simulated environment:
+
+```text
+Traditional Processes
+        +
+Simulated AI Agents
+        ↓
+   Process Manager
+        ↓
+     Scheduler
+        ↓
+        CPU
+        ↓
+ ┌──────┼──────┐
+ ↓      ↓      ↓
+Memory  I/O    IPC
+ ↓      ↓      ↓
+Paging  Buffering
+ ↓      ↓
+Page    Spooling
+Faults
+        ↓
+Interrupts
+        ↓
+Synchronization
+        ↓
+AI Agent Management
+        ↓
+Checkpoint / Failure / Recovery
+
+The system is entirely simulated. It does **not** attempt to replace the host operating system or control real hardware.
+```
+---
+## 🎯 Problem Statement
+
+Traditional OS simulators demonstrate concepts such as process management, CPU scheduling, memory management, interrupts, IPC and I/O.
+
+AIOS explores an additional question:
+
+> **How can an operating system manage AI-agent workloads using classical OS mechanisms while introducing AI-oriented resource management, adaptive scheduling, communication and recovery?**
+
+The key idea is that AI agents do not bypass the operating system.
+
+They are represented as **OS-managed processes**.
+
+```text
+Research Agent
+      ↓
+     PID
+      ↓
+     PCB
+      ↓
+   Scheduler
+      ↓
+      CPU
+```
+
+---
+
+## ✨ Key Features
+
+### Core Operating System
+
+* CPU / Machine simulation
+* Machine instructions
+* Supervisor calls
+* Interrupt handling
+* Process creation and termination
+* Process states
+* PCB-based process management
+* Context switching
+* Multiprogramming
+* FCFS scheduling
+* Round Robin scheduling
+* Priority scheduling
+* Paging
+* Page tables
+* Virtual memory
+* Page faults
+* Page replacement
+* Synchronization
+* Mutex
+* Semaphore
+* Race-condition demonstration
+* Inter-Process Communication
+* Message queues
+* Blocking and non-blocking IPC
+* I/O simulation
+* Buffering
+* Spooling
+* Error handling
+
+### 🤖 AI Extension
+
+AIOS introduces simulated AI-agent workloads.
+
+Initial example agents include:
+
+* Research Agent
+* Coding Agent
+
+The AI layer provides:
+
+* AI-agent process management
+* Adaptive scheduling
+* Explainable scheduling decisions
+* Resource quotas
+* Permissions
+* Agent-to-agent IPC
+* Checkpointing
+* Simulated agent failure
+* Agent recovery
+
+The AI layer extends the OS rather than replacing it.
+
+---
+
+## 🏗️ Architecture
+
+```text
+┌─────────────────────────────────────────────┐
+│                  USER                       │
+└──────────────────────┬──────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────┐
+│             React Dashboard                 │
+│                                             │
+│ CPU │ Processes │ Memory │ Scheduler        │
+│ IPC │ I/O │ AI Agents │ Logs │ Metrics      │
+└──────────────────────┬──────────────────────┘
+                       │
+                 REST / WebSocket
+                       │
+                       ▼
+┌─────────────────────────────────────────────┐
+│              C++ AIOS ENGINE                │
+│                                             │
+│ CPU / Machine Simulator                    │
+│ Process Manager                             │
+│ Scheduler                                   │
+│ Memory Manager                              │
+│ Interrupt Manager                           │
+│ System Call Manager                         │
+│ Synchronization Manager                     │
+│ IPC Manager                                 │
+│ I/O Manager                                 │
+│ Error Handler                               │
+└──────────────────────┬──────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────┐
+│              AI EXTENSION                   │
+│                                             │
+│ AI Agent Manager                            │
+│ AI Adaptive Scheduler                       │
+│ Resource Management                         │
+│ Permissions                                 │
+│ Agent Communication                         │
+│ Checkpoint / Recovery                       │
+└──────────────────────┬──────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────┐
+│          SIMULATED HARDWARE                 │
+│                                             │
+│ CPU │ RAM │ Pages │ Frames │ Swap │ Devices │
+└─────────────────────────────────────────────┘
+```
+
+### Source of Truth
+
+The **C++ simulation engine** is the source of truth for the simulated OS state.
+
+The React application is the:
+
+* Visualization layer
+* Control layer
+* Monitoring interface
+
+The GUI must not contain the core OS logic.
+
+---
+
+
+
+The exact implementation structure should be verified against the repository before development is assumed to be complete.
+
+---
+
+## 🛠️ Technology Stack
+
+| Component            | Technology          |
+| -------------------- | ------------------- |
+| OS Simulation Engine | C++                 |
+| Frontend             | React + TypeScript  |
+| Styling              | Tailwind CSS        |
+| Visualization        | Recharts / Chart.js |
+| Backend ↔ Frontend   | REST / WebSocket    |
+| Configuration        | JSON                |
+| Frontend Build       | Vite                |
+| Version Control      | Git + GitHub        |
+
+---
+
+## 🤖 AI Scheduling
+
+AIOS includes an explainable adaptive scheduler.
+
+The scheduler can consider factors such as:
+
+```text
+Priority
+Waiting Time
+Task Urgency
+CPU Usage
+Memory Usage
+Resource Requirements
+Page-Fault Activity
+```
+
+Conceptually:
+
+```text
+             Process / Agent
+                    ↓
+          ┌────────────────────┐
+          │ AI Scheduler       │
+          │                    │
+          │ Priority           │
+          │ Waiting Time       │
+          │ Urgency            │
+          │ Resource Cost      │
+          └─────────┬──────────┘
+                    ↓
+              Score / Decision
+                    ↓
+             Selected Process
+```
+
+The scheduler should also provide an explanation for its decision rather than behaving as an opaque black box.
+
+---
+
+## 💾 Memory Simulation
+
+AIOS simulates:
+
+```text
+Logical Address
+      ↓
+Page Number + Offset
+      ↓
+Page Table
+      ↓
+Frame
+      ↓
+Physical Address
+```
+
+A page fault follows:
+
+```text
+Memory Access
+      ↓
+Page Not Present
+      ↓
+Page Fault
+      ↓
+Interrupt
+      ↓
+Memory Manager
+      ↓
+Load / Replace Page
+      ↓
+Update Page Table
+      ↓
+Resume Process
+```
+
+---
+
+## 🔄 Process Lifecycle
+
+Processes follow:
+
+```text
+NEW
+ ↓
+READY
+ ↓
+RUNNING
+ ↓
+WAITING
+ ↓
+READY
+ ↓
+RUNNING
+ ↓
+TERMINATED
+```
+
+Not every process must visit every state.
+
+For example, an I/O operation may cause:
+
+```text
+RUNNING
+   ↓
+WAITING
+   ↓
+I/O Completion
+   ↓
+READY
+```
+
+---
+
+## 📡 IPC
+
+Processes and AI agents communicate through the simulated IPC subsystem.
+
+```text
+Sender
+   ↓
+IPC Manager
+   ↓
+Message Queue
+   ↓
+Receiver
+```
+
+Blocking communication can cause:
+
+```text
+Receiver
+   ↓
+No Message
+   ↓
+WAITING
+   ↓
+Message Arrives
+   ↓
+READY
+```
+
+This allows IPC to interact with the process scheduler and process-state system.
+
+---
+
+## 🤖 AI Agent Lifecycle
+
+AI agents follow the normal OS process lifecycle.
+
+Additional AI-specific behaviour can include:
+
+```text
+Agent Created
+      ↓
+OS Process Created
+      ↓
+READY
+      ↓
+RUNNING
+      ↓
+Checkpoint
+      ↓
+Failure
+      ↓
+Recovery
+      ↓
+READY
+      ↓
+RUNNING
+```
+
+Agents must use OS mechanisms for CPU, memory, IPC and scheduling.
+
+---
+
+## 🖥️ Dashboard
+
+The React dashboard is intended to make internal OS operations visible.
+
+Planned views include:
+
+```text
+┌─────────────────────────────────────────────┐
+│ AIOS Dashboard                              │
+├─────────────────────────────────────────────┤
+│ CPU                                         │
+│ Current Process │ Registers │ Utilization   │
+├─────────────────────────────────────────────┤
+│ Processes                                   │
+│ PID │ Name │ State │ Priority │ CPU         │
+├─────────────────────────────────────────────┤
+│ Memory                                      │
+│ Pages │ Frames │ Page Faults │ Swap         │
+├─────────────────────────────────────────────┤
+│ Scheduler                                   │
+│ Algorithm │ Ready Queue │ Decision │ Score  │
+├─────────────────────────────────────────────┤
+│ AI Agents                                   │
+│ Agent │ State │ Resources │ Checkpoint      │
+├─────────────────────────────────────────────┤
+│ IPC / I/O / Interrupts / Events             │
+├─────────────────────────────────────────────┤
+│ Metrics                                     │
+└─────────────────────────────────────────────┘
+```
+
+---
+
+## 🎬 Demonstration
+
+The primary integrated demonstration is:
+
+```text
+Create 3 Processes
+        +
+Create 2 AI Agents
+        ↓
+Load into Memory
+        ↓
+Start Scheduler
+        ↓
+CPU Execution
+        ↓
+Context Switching
+        ↓
+Generate Page Fault
+        ↓
+Handle Interrupt
+        ↓
+Perform I/O
+        ↓
+IPC Between Agents
+        ↓
+Synchronization
+        ↓
+Spooling
+        ↓
+Checkpoint Agent
+        ↓
+Simulate Agent Failure
+        ↓
+Recover Agent
+        ↓
+Resume Execution
+        ↓
+Compare Scheduling Algorithms
+        ↓
+Show Results
+```
+
+The project also uses smaller predefined scenarios for individual concepts.
+
+---
+
+## 🎯 Development Strategy
+
+AIOS is developed incrementally.
+
+```text
+1. CPU / Machine
+       ↓
+2. Process Management
+       ↓
+3. Memory / Paging
+       ↓
+4. Interrupts / System Calls
+       ↓
+5. Scheduling
+       ↓
+6. Synchronization
+       ↓
+7. IPC
+       ↓
+8. I/O / Buffering / Spooling
+       ↓
+9. AI Agent Layer
+       ↓
+10. REST / WebSocket
+       ↓
+11. React Dashboard
+       ↓
+12. Integration / Testing
+```
+
+The core OS should be stable before significant GUI work is performed.
+
+---
+
+## 📚 Documentation
+
+Start with:
+
+* [`PRD.md`](docs/PRD.md) — Product requirements and scope
+* [`AGENTS.md`](AGENTS.md) — Development-agent workflow and project rules
+* [`TEAMMATES.md`](TEAMMATES.md) — Team ownership, collaboration and handoffs
+* [`STATUS.md`](STATUS.md) — Living project status
+
+Detailed technical specifications are maintained under [`docs/`](docs/).
+
+---
+
+## 🚫 Scope Boundaries
+
+AIOS does **not** initially attempt to implement:
+
+* A real operating-system kernel
+* Real hardware control
+* Real autonomous AI agents
+* A real LLM controlling the CPU scheduler
+* Real GPU scheduling
+* A distributed operating system
+* Production-grade security
+* Real hardware drivers
+
+AIOS is an educational simulator.
+
+---
+
+## 💡 Why AIOS?
+
+The project combines classical Operating System concepts with a modern workload model.
+
+The distinction is:
+
+```text
+Traditional OS Simulator
+
+Processes
+   ↓
+Scheduler
+   ↓
+CPU
+```
+
+versus:
+
+```text
+AIOS
+
+Processes + AI Agents
+        ↓
+   Process Manager
+        ↓
+Classical + Adaptive Scheduler
+        ↓
+CPU / Memory / IPC / I/O
+        ↓
+Agent Resource Management
+        ↓
+Checkpoint / Failure / Recovery
+```
+
+The goal is not to put the word "AI" on an ordinary OS simulator.
+
+The goal is to study how **AI-oriented workloads can be treated as OS-managed workloads**.
+
+---
+
+# 📊 Current Status
+
+<!--
+IMPORTANT:
+This is the only README section that should be continuously updated
+by the project development workflow.
+
+Keep this section concise.
+Detailed history belongs in STATUS.md.
+-->
+
+**Phase:** 🟡 Project Definition / Documentation
+
+**Current State:**
+
+* Core project concept defined.
+* Problem statement defined.
+* OS subsystem architecture defined.
+* AI-agent layer defined.
+* GUI direction defined.
+* Technology stack defined.
+* Integrated demo flow defined.
+* Project scope boundaries defined.
+* PRD structure established.
+* Agent workflow established.
+* Team/status tracking established.
+* Canonical repository structure established.
+
+**Currently Working On:**
+
+1. Verify the actual GitHub repository.
+2. Inspect the current implementation against project documentation.
+3. Establish the implementation baseline.
+4. Confirm team ownership.
+5. Begin the Core OS implementation in dependency order.
+
+**Blocked By:**
+
+* GitHub repository has not yet been identified.
+* Final teammate/responsibility mapping has not yet been confirmed.
+
+### Quick Start
+
+The implementation baseline is not yet verified.
+
+Once the repository is confirmed:
+
+```bash
+git clone <repository-url>
+cd AIOS
+```
+
+Then inspect:
+
+```text
+PRD.md
+AGENTS.md
+TEAMMATES.md
+STATUS.md
+docs/
+```
+
+Before running or modifying code, verify the project's actual build instructions and implementation structure from the repository.
+
+---
+
+## 🧠 Project Principle
+
+> **The OS manages the workload.
+> The AI layer describes and extends the workload.
+> The GUI visualizes the workload.**
+
+AIOS should always preserve this separation.
+

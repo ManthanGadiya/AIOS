@@ -1,0 +1,18 @@
+# IDE
+.idea/
+.vscode/
+
+# Build artifacts
+build/
+cmake-build-*/
+*.o
+*.obj
+*.exe
+
+# Python
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+dist/
