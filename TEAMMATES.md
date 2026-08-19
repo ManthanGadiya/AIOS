@@ -16,7 +16,7 @@
 
 | Member | Role | Primary Responsibility | Status |
 |---|---|---|---|
-| Manthan Gadiya | Project member | TBD | Active |
+| Manthan Gadiya | Project member | Core OS Implementation (M1-M6) | Active |
 | TBD | Team member | TBD | Unknown |
 | TBD | Team member | TBD | Unknown |
 | TBD | Team member | TBD | Unknown |
@@ -81,18 +81,18 @@ Assignments must be confirmed before being treated as official.
 
 | Area | Owner | Backup | Status |
 |---|---|---|---|
-| CPU | TBD | TBD | Not Started |
-| Process Management | TBD | TBD | Not Started |
-| Memory / Paging | TBD | TBD | Not Started |
-| Interrupts / System Calls | TBD | TBD | Not Started |
-| Scheduling | TBD | TBD | Not Started |
-| Synchronization | TBD | TBD | Not Started |
-| IPC | TBD | TBD | Not Started |
-| I/O | TBD | TBD | Not Started |
-| AI Agent Layer | TBD | TBD | Not Started |
-| GUI | TBD | TBD | Not Started |
-| Integration | TBD | TBD | Not Started |
-| Testing | TBD | TBD | Not Started |
+| CPU | Manthan Gadiya | TBD | 🟢 Complete |
+| Process Management | Manthan Gadiya | TBD | 🟢 Complete |
+| Memory / Paging | Manthan Gadiya | TBD | 🟡 In Progress (flat RAM done, paging next) |
+| Interrupts / System Calls | Manthan Gadiya | TBD | 🟢 Complete (stub I/O/IPC) |
+| Scheduling | TBD | TBD | ⚪ Not Started |
+| Synchronization | TBD | TBD | ⚪ Not Started |
+| IPC | TBD | TBD | ⚪ Not Started |
+| I/O | TBD | TBD | ⚪ Not Started |
+| AI Agent Layer | TBD | TBD | ⚪ Not Started |
+| GUI | TBD | TBD | ⚪ Not Started |
+| Integration | TBD | TBD | ⚪ Not Started |
+| Testing | Manthan Gadiya | TBD | 🟢 Unit tests passing |
 
 ---
 
@@ -158,6 +158,19 @@ Next Recommended Step:
 
 # 8. Change Log
 
+## 2026-08-19
+
+* M1+M2 Core OS Implementation complete.
+* CPU Simulator: registers, fetch-decode-execute, full instruction set, FLAGS, error detection.
+* Memory: 1024-word flat RAM, program loading, bounds checking.
+* Process Manager: PCB, state machine, queues, dispatch/preemption with context save/restore.
+* Interrupt Manager: SYSTEM_CALL, TIMER, IO_COMPLETE, ERROR, pending queue + log.
+* System Call Manager: READ, WRITE, ALLOCATE, EXIT (stubs for IPC, I/O).
+* Event Log, Simulation Clock, Program Loader.
+* All unit tests passing (9 test files).
+* CMake + MinGW build verified.
+* GitHub repository confirmed and synced (https://github.com/ManthanGadiya/AIOS.git).
+
 ## 2026-08-18
 
 * Project-level PRD direction established.
@@ -177,8 +190,8 @@ Next Recommended Step:
 
 1. What are the confirmed names of all five team members?
 2. What subsystem is assigned to each member?
-3. Which GitHub repository contains AIOS?
-4. Which branch is the team's primary development branch?
+3. Which GitHub repository contains AIOS? → **Answered: https://github.com/ManthanGadiya/AIOS.git**
+4. Which branch is the team's primary development branch? → **Answered: main**
 
 ---
 

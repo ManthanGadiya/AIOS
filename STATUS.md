@@ -4,13 +4,13 @@
 >
 > Update this file after every meaningful project change.
 
-**Last Updated:** 2026-08-18
+**Last Updated:** 2026-08-19
 
 ---
 
 # 1. Current Phase
 
-## Phase: Project Definition / Documentation
+## Phase: Core OS Implementation
 
 Current priority:
 
@@ -21,7 +21,7 @@ Documentation Governance
       ↓
 Repository Setup / Verification
       ↓
-Core OS Implementation
+Core OS Implementation  ← CURRENT
       ↓
 AI Layer
       ↓
@@ -38,19 +38,18 @@ Final Demo
 
 # 2. Overall Status
 
-**Status:** 🟡 Planning / Documentation
+**Status:** 🟢 Core OS Implementation — M1/M2 Complete
 
-**Implementation Status:** Not yet verified from repository
+**Implementation Status:** M1+M2 Complete — CPU, Memory, Process Management, Interrupts, System Calls implemented and tested
 
-**GitHub Status:** Repository not currently identified
+**GitHub Status:** https://github.com/ManthanGadiya/AIOS.git (main)
 
 **Current Focus:**
 
-* Establish project documentation governance.
-* Establish agent workflow.
-* Establish team tracking.
-* Establish living project status.
-* Verify repository before code changes.
+* Core OS implementation (M1: Foundation + M2: Stage I CPU/System Calls) — **DONE**
+* C++ backend builds and tests pass
+* GitHub repository confirmed and synced
+* Next: Paging/Virtual Memory (Week 3), Scheduling (Week 5), Full Interrupt Manager (Week 4)
 
 ---
 
@@ -115,13 +114,13 @@ The project specification currently defines:
 
 ```text
 User
- ↓
+  ↓
 React Dashboard
- ↓
+  ↓
 REST / WebSocket
- ↓
+  ↓
 C++ AIOS Engine
- ↓
+  ↓
 ┌───────────────────────────┐
 │ CPU                       │
 │ Process Manager           │
@@ -135,9 +134,9 @@ C++ AIOS Engine
 │ Error Manager             │
 └──────────────┬────────────┘
                ↓
-        AI Agent Manager
+       AI Agent Manager
                ↓
-        AI Agent Workloads
+       AI Agent Workloads
 ```
 
 The C++ engine remains the simulation source of truth.
@@ -164,9 +163,9 @@ The C++ engine remains the simulation source of truth.
 | 13 GUI Architecture           | Existing        |
 | 14 Demo Scenarios             | Existing        |
 | 15 Testing                    | Existing        |
-| AGENTS.md                     | To be committed |
-| TEAMMATES.md                  | To be committed |
-| STATUS.md                     | To be committed |
+| AGENTS.md                     | Committed       |
+| TEAMMATES.md                  | Committed       |
+| STATUS.md                     | Committed       |
 
 ---
 
@@ -191,28 +190,28 @@ The C++ engine remains the simulation source of truth.
 * Team tracking requirements established.
 * Status tracking requirements established.
 
+### Implemented (M1+M2)
+
+* **CPU Simulator** — registers (PC, IR, ACC, MAR, MBR, FLAGS), fetch-decode-execute, instruction set (LOAD, STORE, ADD, SUB, MUL, DIV, JMP, JZ, READ, WRITE, SYSCALL, HALT), arithmetic flags, error detection
+* **Memory** — 1024-word flat RAM, program loading, bounds checking
+* **Process Manager** — PCB, state machine (NEW/READY/RUNNING/WAITING/TERMINATED/FAILED), ready/waiting queues, dispatch/preemption with context save/restore
+* **Interrupt Manager** — SYSTEM_CALL, TIMER, IO_COMPLETE, ERROR phases, pending queue, log, dispatch
+* **System Call Manager** — READ, WRITE, ALLOCATE, EXIT (stubs for IPC_SEND, IO_REQUEST)
+* **Event Log** — 14 event types with listener support
+* **Simulation Clock** — cycle counter
+* **Program Loader** — text instruction parsing + raw data words
+* **Unit Tests** — 9 test files, all passing (CPU, memory, process, interrupt, syscall, types, loader, smoke)
+
 ---
 
 # 7. Currently In Progress
 
-### Documentation Governance
+### Core OS Implementation (M3+)
 
-Establish:
-
-```text
-AGENTS.md
-TEAMMATES.md
-STATUS.md
-PRD.md
-```
-
-and define how they remain synchronized during development.
-
-### Repository Verification
-
-The GitHub repository has not yet been identified through the currently available GitHub integration.
-
-No source-code implementation should be assumed to exist until the repository is confirmed.
+* Paging / Virtual Memory (Week 3)
+* Process Manager full features (Week 4)
+* Full Interrupt Manager with timer/page fault/I/O priority (Week 4)
+* Scheduling policies (Week 5)
 
 ---
 
@@ -220,35 +219,14 @@ No source-code implementation should be assumed to exist until the repository is
 
 The following require repository inspection:
 
-* Actual source-code structure
-* Actual C++ implementation
 * Actual frontend implementation
-* Existing tests
-* Build system
-* Current branches
-* Existing commits
-* GitHub repository
-* Current implementation progress
-* Team member assignments
+* REST / WebSocket layer
+* AI Agent Layer
+* Integration scenarios
 
 ---
 
 # 9. Current Blockers
-
-## BLOCKER-001 — GitHub Repository
-
-The repository identity is currently unavailable.
-
-Required:
-
-```text
-GitHub repository:
-owner/repository
-```
-
-Without this, repository files cannot safely be modified or committed.
-
----
 
 ## BLOCKER-002 — Team Assignments
 
@@ -268,16 +246,23 @@ Do not invent assignments.
 
 ### Immediate
 
-1. Confirm GitHub repository.
-2. Inspect repository structure.
-3. Inspect current source code.
-4. Inspect current branches.
-5. Inspect recent commits.
-6. Compare implementation against documentation.
+1. ✅ Confirm GitHub repository.
+2. ✅ Inspect repository structure.
+3. ✅ Inspect current source code.
+4. ✅ Inspect current branches.
+5. ✅ Inspect recent commits.
+6. ✅ Compare implementation against documentation.
 7. Confirm team assignments.
-8. Commit project governance documents.
-9. Establish implementation baseline.
-10. Start first Core OS subsystem.
+8. ✅ Commit project governance documents.
+9. ✅ Establish implementation baseline.
+10. ✅ Complete first Core OS subsystem (CPU/Machine Simulator).
+
+### Next Milestone (Week 3-4)
+
+1. Implement Paging / Virtual Memory (Memory Manager, Page Tables, Page Faults)
+2. Complete Process Manager (creation data, resource tracking, statistics)
+3. Full Interrupt Manager (timer, page fault, I/O priority queue, nested interrupt policy)
+4. Scheduler interface + FCFS + Round Robin
 
 ---
 
@@ -285,29 +270,29 @@ Do not invent assignments.
 
 ```text
 CPU
- ↓
+  ↓
 Process Management
- ↓
-Memory / Paging
- ↓
+  ↓
+Memory / Paging       ← NEXT
+  ↓
 Interrupts / System Calls
- ↓
+  ↓
 Scheduling
- ↓
+  ↓
 Synchronization
- ↓
+  ↓
 IPC
- ↓
+  ↓
 I/O / Buffering / Spooling
- ↓
+  ↓
 AI Agent Layer
- ↓
+  ↓
 REST / WebSocket
- ↓
+  ↓
 React Dashboard
- ↓
+  ↓
 Integration
- ↓
+  ↓
 Testing
 ```
 
@@ -343,6 +328,20 @@ Meaningful commit created
 
 # 13. Latest Meaningful Change
 
+**2026-08-19**
+
+M1+M2 Core OS Implementation complete.
+
+* CPU Simulator: registers, fetch-decode-execute, full instruction set, FLAGS, error detection
+* Memory: 1024-word flat RAM, program loading, bounds checking
+* Process Manager: PCB, state machine, queues, dispatch/preemption with context save/restore
+* Interrupt Manager: SYSTEM_CALL, TIMER, IO_COMPLETE, ERROR, pending queue + log
+* System Call Manager: READ, WRITE, ALLOCATE, EXIT (stubs for IPC, I/O)
+* Event Log, Simulation Clock, Program Loader
+* All unit tests passing (9 test files)
+* CMake + MinGW build verified
+* GitHub repository confirmed and synced
+
 **2026-08-18**
 
 Governance documents populated and documentation references corrected.
@@ -358,7 +357,7 @@ Governance documents populated and documentation references corrected.
 # 14. Latest Commit
 
 ```text
-5ba3d88 docs: establish repository structure and governance baseline
+a64551e docs: clean up AGENTS.md formatting and remove embedded status/teammates content
 ```
 
 ---
@@ -368,16 +367,21 @@ Governance documents populated and documentation references corrected.
 The README should contain only a concise version of this state:
 
 ```text
-AIOS is currently in the project-definition/documentation phase.
+AIOS is currently in the Core OS Implementation phase.
+
+M1 (Foundation) and M2 (Stage I: CPU/System Calls) are complete:
+- CPU Simulator with registers, fetch-decode-execute, full instruction set
+- Memory (flat RAM), Process Manager (PCB, states, queues, context switch)
+- Interrupt Manager, System Call Manager, Event Log, Simulation Clock
+- All unit tests passing, CMake + MinGW build verified
 
 The architecture, OS subsystems, AI-agent layer, GUI direction,
 demo scenarios and testing strategy have been defined.
 
 Next:
-1. Verify repository
-2. Establish implementation baseline
-3. Begin CPU / Machine Simulator
-4. Implement core OS incrementally
+1. Paging / Virtual Memory (Week 3)
+2. Full Interrupt Manager + Process Manager (Week 4)
+3. Scheduling policies (Week 5)
 ```
 
 ---

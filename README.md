@@ -582,7 +582,7 @@ Keep this section concise.
 Detailed history belongs in STATUS.md.
 -->
 
-**Phase:** 🟡 Project Definition / Documentation
+**Phase:** 🟢 Core OS Implementation — M1/M2 Complete
 
 **Current State:**
 
@@ -598,42 +598,40 @@ Detailed history belongs in STATUS.md.
 * Agent workflow established.
 * Team/status tracking established.
 * Canonical repository structure established.
+* **GitHub repository confirmed: https://github.com/ManthanGadiya/AIOS.git**
+* **M1 (Foundation) + M2 (Stage I: CPU/System Calls) implemented and tested**
+
+**Implemented (M1+M2):**
+
+* **CPU Simulator** — registers (PC, IR, ACC, MAR, MBR, FLAGS), fetch-decode-execute, full instruction set (LOAD, STORE, ADD, SUB, MUL, DIV, JMP, JZ, READ, WRITE, SYSCALL, HALT), arithmetic flags (ZERO, NEG, CARRY, OVERFLOW, ERROR), error detection
+* **Memory** — 1024-word flat RAM, program loading, bounds checking
+* **Process Manager** — PCB, state machine (NEW/READY/RUNNING/WAITING/TERMINATED/FAILED), ready/waiting queues, dispatch/preemption with context save/restore
+* **Interrupt Manager** — SYSTEM_CALL, TIMER, IO_COMPLETE, ERROR phases, pending queue + log
+* **System Call Manager** — READ, WRITE, ALLOCATE, EXIT (stubs for IPC_SEND, IO_REQUEST)
+* **Event Log, Simulation Clock, Program Loader**
+* **All unit tests passing** (9 test files: CPU, memory, process, interrupt, syscall, types, loader, smoke)
+* **CMake + MinGW-w64 GCC 16.2.0 build verified**
 
 **Currently Working On:**
 
-1. Verify the actual GitHub repository.
-2. Inspect the current implementation against project documentation.
-3. Establish the implementation baseline.
-4. Confirm team ownership.
-5. Begin the Core OS implementation in dependency order.
+1. Paging / Virtual Memory (Week 3)
+2. Full Interrupt Manager (timer, page fault, I/O priority) (Week 4)
+3. Scheduling policies: FCFS, Round Robin, Priority (Week 5)
+4. Process Manager full features (creation data, resource tracking, statistics)
 
 **Blocked By:**
 
-* GitHub repository has not yet been identified.
 * Final teammate/responsibility mapping has not yet been confirmed.
 
 ### Quick Start
 
-The implementation baseline is not yet verified.
-
-Once the repository is confirmed:
-
 ```bash
-git clone <repository-url>
-cd AIOS
+git clone https://github.com/ManthanGadiya/AIOS.git
+cd AIOS/backend
+cmake -G "MinGW Makefiles" -DCMAKE_CXX_COMPILER="C:/Users/Admin/scoop/apps/mingw/current/bin/g++.exe" -B build .
+cmake --build build --config Debug
+.\build\tests\aios_tests.exe
 ```
-
-Then inspect:
-
-```text
-PRD.md
-AGENTS.md
-TEAMMATES.md
-STATUS.md
-docs/
-```
-
-Before running or modifying code, verify the project's actual build instructions and implementation structure from the repository.
 
 ---
 
