@@ -1,5 +1,6 @@
 add_library(aios_core STATIC
     aios/core/types.cpp
+    aios/memory/ProgramLoader.cpp
 )
 
 target_include_directories(aios_core PUBLIC

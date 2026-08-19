@@ -4,6 +4,8 @@ add_executable(aios_tests
     test_main.cpp
     test_smoke.cpp
     test_types.cpp
+    test_memory.cpp
+    test_loader.cpp
 )
 
 target_include_directories(aios_tests PRIVATE
