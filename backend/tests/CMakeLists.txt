@@ -6,6 +6,10 @@ add_executable(aios_tests
     test_types.cpp
     test_memory.cpp
     test_loader.cpp
+    test_cpu.cpp
+    test_process.cpp
+    test_interrupt.cpp
+    test_syscall.cpp
 )
 
 target_include_directories(aios_tests PRIVATE
