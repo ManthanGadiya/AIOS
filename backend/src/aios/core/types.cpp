@@ -177,6 +177,10 @@ std::string eventTypeToString(EventType type) {
         case EventType::PAGE_SWAPPED_OUT:    return "PAGE_SWAPPED_OUT";
         case EventType::PAGE_SWAPPED_IN:     return "PAGE_SWAPPED_IN";
         case EventType::INVALID_MEMORY_ACCESS: return "INVALID_MEMORY_ACCESS";
+        case EventType::SCHEDULER_STARTED:     return "SCHEDULER_STARTED";
+        case EventType::PROCESS_SELECTED:      return "PROCESS_SELECTED";
+        case EventType::PROCESS_PREEMPTED:     return "PROCESS_PREEMPTED";
+        case EventType::TIME_QUANTUM_EXPIRED:  return "TIME_QUANTUM_EXPIRED";
     }
     return "UNKNOWN";
 }

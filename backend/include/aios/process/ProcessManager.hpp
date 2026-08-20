@@ -22,7 +22,8 @@ class MemoryManager;
 // Holds PCBs, allocates PIDs, and enforces the documented state machine:
 //   NEW -> READY -> RUNNING -> {READY | WAITING | TERMINATED | FAILED}
 //   WAITING -> READY
-// Stage I uses direct dispatch (no scheduler object yet).  [decision D7]
+// Process selection is owned by the Scheduler (docs/08); ProcessManager only
+// executes a dispatch (READY -> RUNNING) that the scheduler requests.
 // ---------------------------------------------------------------------------
 class ProcessManager {
 public:

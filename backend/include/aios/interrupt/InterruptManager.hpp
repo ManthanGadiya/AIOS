@@ -11,6 +11,7 @@ namespace aios {
 class SystemCallManager;
 class ProcessManager;
 class MemoryManager;
+class Scheduler;
 
 // ---------------------------------------------------------------------------
 // Interrupt manager (docs/05).
@@ -29,6 +30,7 @@ public:
     void setSystemCallManager(SystemCallManager* m) { syscalls_ = m; }
     void setProcessManager(ProcessManager* m) { processes_ = m; }
     void setMemoryManager(MemoryManager* m) { memoryManager_ = m; }
+    void setScheduler(Scheduler* s) { scheduler_ = s; }
 
     // Priority of an interrupt type. Lower value = higher priority
     // (docs/05 section 19, finalized during implementation):
@@ -67,6 +69,7 @@ private:
     SystemCallManager* syscalls_ = nullptr;
     ProcessManager* processes_ = nullptr;
     MemoryManager* memoryManager_ = nullptr;
+    Scheduler* scheduler_ = nullptr;
 };
 
 } // namespace aios

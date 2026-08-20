@@ -3,6 +3,7 @@
 #include <aios/interrupt/SystemCallManager.hpp>
 #include <aios/memory/MemoryManager.hpp>
 #include <aios/process/ProcessManager.hpp>
+#include <aios/scheduling/Scheduler.hpp>
 
 #include <iterator>
 
@@ -106,10 +107,15 @@ void InterruptManager::dispatch(const InterruptRequest& req) {
         if (memoryManager_ && req.pid != INVALID_PID) {
             memoryManager_->handlePageFault(req.pid, static_cast<uint32_t>(req.data));
         }
+    } else if (req.type == InterruptType::TIMER) {
+        // The time quantum expired: Round Robin preempts the running process
+        // (docs/08 section 24). FCFS and PRIORITY ignore the timer.
+        if (scheduler_) {
+            scheduler_->onTimeQuantumExpired();
+        }
     }
-    // TIMER and IO_COMPLETE handlers are placeholders in this milestone: TIMER
-    // will drive the scheduler (docs/08, Week 5) and IO_COMPLETE the I/O
-    // manager (docs/11). Both are still logged and completed.
+    // The IO_COMPLETE handler is a placeholder in this milestone: it will drive
+    // the I/O manager (docs/11). It is still logged and completed.
 
     for (auto& entry : log_) {
         if (entry.id == req.id) {

@@ -4,6 +4,7 @@ add_library(aios_core STATIC
     aios/memory/MemoryManager.cpp
     aios/cpu/CPU.cpp
     aios/process/ProcessManager.cpp
+    aios/scheduling/Scheduler.cpp
     aios/interrupt/InterruptManager.cpp
     aios/interrupt/SystemCallManager.cpp
     aios/interrupt/Timer.cpp

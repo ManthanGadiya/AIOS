@@ -216,7 +216,11 @@ enum class EventType : int32_t {
     PAGE_LOADED = 19,
     PAGE_SWAPPED_OUT = 20,
     PAGE_SWAPPED_IN = 21,
-    INVALID_MEMORY_ACCESS = 22
+    INVALID_MEMORY_ACCESS = 22,
+    SCHEDULER_STARTED = 23,
+    PROCESS_SELECTED = 24,
+    PROCESS_PREEMPTED = 25,
+    TIME_QUANTUM_EXPIRED = 26
 };
 
 std::string eventTypeToString(EventType type);
