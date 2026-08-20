@@ -38,18 +38,18 @@ Final Demo
 
 # 2. Overall Status
 
-**Status:** 🟢 Core OS Implementation — M1/M2/M3 + Full Interrupt Manager (M4) Complete
+**Status:** 🟢 Core OS Implementation — M1/M2/M3 + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) Complete
 
-**Implementation Status:** M1+M2+M3 + M4 (Full Interrupt Manager) Complete — CPU, Memory, Process Management, Interrupts, System Calls, Paging/Virtual Memory, Interrupt Priority/Timer implemented and tested
+**Implementation Status:** M1+M2+M3 + M4 + M5 Complete — CPU, Memory, Process Management (full features), Interrupts, System Calls, Paging/Virtual Memory, Interrupt Priority/Timer, Process Resource Tracking/Statistics implemented and tested
 
 **GitHub Status:** https://github.com/ManthanGadiya/AIOS.git (main)
 
 **Current Focus:**
 
-* Core OS implementation (M1: Foundation + M2: Stage I CPU/System Calls + M3: Paging + M4: Full Interrupt Manager) — **DONE**
-* C++ backend builds and tests pass (104 test cases / 524 assertions)
+* Core OS implementation (M1: Foundation + M2: Stage I CPU/System Calls + M3: Paging + M4: Full Interrupt Manager + M5: Process Manager full features) — **DONE**
+* C++ backend builds and tests pass (115 test cases / 611 assertions)
 * GitHub repository confirmed and synced
-* Next: Process Manager full features (Week 4), Scheduling (Week 5)
+* Next: Scheduling (Week 5)
 
 ---
 
@@ -223,13 +223,22 @@ The C++ engine remains the simulation source of truth.
 * **Timer** — new Timer component generates periodic TIMER interrupts when a configurable quantum of simulated cycles elapses (default 4, docs/05 section 32 example; 0 disables); basis for Round Robin scheduling (docs/08, Week 5)
 * **Unit Tests** — test_timer.cpp (7 T-TIMER cases) + T-INT-009/010/011; T-INT-002 updated from FIFO to priority; full suite 104 test cases / 524 assertions passing
 
+### Implemented (M5: Process Manager Full Features)
+
+* **Process type** — `ProcessType` enum (NORMAL / AI_AGENT) on the PCB; `createAgentProcess()` wrapper (docs/06 section 34); agents are ordinary OS processes
+* **CPU-time accounting** — dispatch marks the process on the CPU; the run is charged to `cpuTime` when the process leaves the CPU (preempt, block, terminate, fail, reset); `contextSwitchCount` increments per dispatch
+* **Waiting-time accounting** — processes on the READY queue accrue `waitingTime` (charged centrally in the transition layer when leaving READY, including READY -> FAILED)
+* **Response and turnaround** — `firstRunCycle` (response time) set on first dispatch; `turnaroundTime = terminated - created`
+* **State-change tracking** — `stateChangeCount` incremented on every legal transition
+* **Statistics API** — `getProcessStatistics(pid)` (nullopt for unknown pid), `getAllProcessStatistics()`, `cpuUtilization()` (charged CPU time over simulated time, including the current uncharged run); page-fault counts surfaced from the Memory Manager's per-process counters (docs/06 sections 28-29)
+* **Unit Tests** — T-PROC-014..023 (type, cpuTime, waitingTime, context switches, response/turnaround, statistics, utilization) + T-PAGE-015 (per-process page faults surfaced in statistics); full suite 115 test cases / 611 assertions passing
+
 ---
 
 # 7. Currently In Progress
 
-### Core OS Implementation (M4+)
+### Core OS Implementation (M5+)
 
-* Process Manager full features (Week 4)
 * Scheduling policies (Week 5)
 
 ---
@@ -279,7 +288,7 @@ Do not invent assignments.
 ### Next Milestone (Week 3-4)
 
 1. ✅ Implement Paging / Virtual Memory (Memory Manager, Page Tables, Page Faults)
-2. Complete Process Manager (creation data, resource tracking, statistics)
+2. ✅ Complete Process Manager (creation data, resource tracking, statistics)
 3. ✅ Full Interrupt Manager (timer, page fault, I/O priority queue, nested interrupt policy)
 4. Scheduler interface + FCFS + Round Robin
 
@@ -347,6 +356,17 @@ Meaningful commit created
 
 # 13. Latest Meaningful Change
 
+**2026-08-20 (M5)**
+
+Process Manager full features complete (creation data, resource tracking, statistics).
+
+* ProcessType (NORMAL / AI_AGENT) on the PCB + createAgentProcess() wrapper
+* CPU-time accounting charged on CPU release (preempt/block/terminate/fail/reset); waiting-time accounting charged centrally when leaving the READY queue
+* Response time (first run), turnaround time (terminated - created), state-change and context-switch counters
+* Statistics API: getProcessStatistics() / getAllProcessStatistics() / cpuUtilization(); per-process page faults surfaced from the Memory Manager
+* Unit tests: T-PROC-014..023 + T-PAGE-015; full suite 115 test cases / 611 assertions passing
+* Build verified with MinGW-w64 GCC 16.2.0; committed and pushed to GitHub
+
 **2026-08-20 (M4)**
 
 Full Interrupt Manager complete.
@@ -401,7 +421,7 @@ Governance documents populated and documentation references corrected.
 # 14. Latest Commit
 
 ```text
-14d759e feat(interrupt): implement priority queue, timer and nested policy (M4)
+74e0ca8 feat(process): add resource tracking, statistics and agent process creation (M5)
 ```
 
 ---
@@ -413,21 +433,20 @@ The README should contain only a concise version of this state:
 ```text
 AIOS is currently in the Core OS Implementation phase.
 
-M1 (Foundation), M2 (Stage I: CPU/System Calls), M3 (Paging/Virtual Memory)
-and M4 (Full Interrupt Manager) are complete:
+M1 (Foundation), M2 (Stage I: CPU/System Calls), M3 (Paging/Virtual Memory),
+M4 (Full Interrupt Manager) and M5 (Process Manager Full Features) are complete:
 - CPU Simulator with registers, fetch-decode-execute, full instruction set
 - Memory (flat RAM) + Memory Manager (page tables, frames, swap, FIFO replacement)
-- Process Manager (PCB, states, queues, context switch)
+- Process Manager (PCB, states, queues, context switch, resource tracking, statistics)
 - Interrupt Manager (priority queue, timer, nested policy, PAGE_FAULT dispatch) + System Call Manager
 - Event Log, Simulation Clock, Program Loader, Timer
-- All unit tests passing (104 test cases), CMake + MinGW build verified
+- All unit tests passing (115 test cases), CMake + MinGW build verified
 
 The architecture, OS subsystems, AI-agent layer, GUI direction,
 demo scenarios and testing strategy have been defined.
 
 Next:
-1. Process Manager full features (Week 4)
-2. Scheduling policies (Week 5)
+1. Scheduling policies (Week 5)
 ```
 
 ---

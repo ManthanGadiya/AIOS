@@ -582,7 +582,7 @@ Keep this section concise.
 Detailed history belongs in STATUS.md.
 -->
 
-**Phase:** 🟢 Core OS Implementation — M1/M2/M3 + M4 (Full Interrupt Manager) Complete
+**Phase:** 🟢 Core OS Implementation — M1/M2/M3 + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) Complete
 
 **Current State:**
 
@@ -599,7 +599,7 @@ Detailed history belongs in STATUS.md.
 * Team/status tracking established.
 * Canonical repository structure established.
 * **GitHub repository confirmed: https://github.com/ManthanGadiya/AIOS.git**
-* **M1 (Foundation) + M2 (Stage I: CPU/System Calls) + M3 (Paging/Virtual Memory) + M4 (Full Interrupt Manager) implemented and tested**
+* **M1 (Foundation) + M2 (Stage I: CPU/System Calls) + M3 (Paging/Virtual Memory) + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) implemented and tested**
 
 **Implemented (M1+M2):**
 
@@ -627,10 +627,15 @@ Detailed history belongs in STATUS.md.
 * **Timer** — periodic TIMER interrupts on a configurable quantum (default 4 cycles), basis for Round Robin
 * **Lifecycle observability** — requests marked SERVICING then COMPLETED; `pendingInterrupts()` accessor
 
+**Implemented (M5: Process Manager Full Features):**
+
+* **Process type** — `ProcessType` (NORMAL / AI_AGENT) on the PCB; `createAgentProcess()` entry point
+* **Resource tracking** — CPU time charged on CPU release (preempt/block/terminate/fail), waiting time charged in the READY queue, response time (first run), turnaround time, state-change and context-switch counters
+* **Statistics API** — `getProcessStatistics()` / `getAllProcessStatistics()` / `cpuUtilization()`; per-process page faults surfaced from the Memory Manager
+
 **Currently Working On:**
 
-1. Process Manager full features (creation data, resource tracking, statistics)
-2. Scheduling policies: FCFS, Round Robin, Priority (Week 5)
+1. Scheduling policies: FCFS, Round Robin, Priority (Week 5)
 
 **Blocked By:**
 

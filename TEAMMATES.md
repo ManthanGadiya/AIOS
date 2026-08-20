@@ -82,7 +82,7 @@ Assignments must be confirmed before being treated as official.
 | Area | Owner | Backup | Status |
 |---|---|---|---|
 | CPU | Manthan Gadiya | TBD | 🟢 Complete |
-| Process Management | Manthan Gadiya | TBD | 🟢 Complete |
+| Process Management | Manthan Gadiya | TBD | 🟢 Complete (PCB, states, queues, context switch, resource tracking, statistics) |
 | Memory / Paging | Manthan Gadiya | TBD | 🟢 Complete (flat RAM + page tables, frames, swap, FIFO) |
 | Interrupts / System Calls | Manthan Gadiya | TBD | 🟢 Complete (priority queue, timer, nested policy, PAGE_FAULT dispatch; stub I/O/IPC) |
 | Scheduling | TBD | TBD | ⚪ Not Started |
@@ -159,6 +159,14 @@ Next Recommended Step:
 # 8. Change Log
 
 ## 2026-08-20
+
+* M5 Process Manager full features complete (creation data, resource tracking, statistics).
+* ProcessType (NORMAL / AI_AGENT) on the PCB; createAgentProcess() wrapper; AI agents remain ordinary OS processes (docs/06 section 34).
+* CPU-time accounting charged on CPU release (preempt/block/terminate/fail/reset); waiting-time accounting charged centrally when leaving the READY queue.
+* Response time (first run), turnaround time (terminated - created), state-change and context-switch counters; ProcessStatistics API (getProcessStatistics / getAllProcessStatistics / cpuUtilization).
+* Per-process page faults surfaced into process statistics from the Memory Manager counters.
+* Unit tests: T-PROC-014..023 + T-PAGE-015; full suite 115 test cases / 611 assertions passing.
+* Committed and pushed to https://github.com/ManthanGadiya/AIOS.git.
 
 * M4 Full Interrupt Manager complete.
 * Interrupt priority queue: pending interrupts serviced in priority order (ERROR > PAGE_FAULT > SYSTEM_CALL > IO_COMPLETE > TIMER), FIFO within equal priority; ordering centralized in InterruptManager::priorityOf().
