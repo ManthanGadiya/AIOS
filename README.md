@@ -582,7 +582,7 @@ Keep this section concise.
 Detailed history belongs in STATUS.md.
 -->
 
-**Phase:** 🟢 Core OS Implementation — M1/M2 Complete
+**Phase:** 🟢 Core OS Implementation — M1/M2/M3 Complete
 
 **Current State:**
 
@@ -599,7 +599,7 @@ Detailed history belongs in STATUS.md.
 * Team/status tracking established.
 * Canonical repository structure established.
 * **GitHub repository confirmed: https://github.com/ManthanGadiya/AIOS.git**
-* **M1 (Foundation) + M2 (Stage I: CPU/System Calls) implemented and tested**
+* **M1 (Foundation) + M2 (Stage I: CPU/System Calls) + M3 (Paging/Virtual Memory) implemented and tested**
 
 **Implemented (M1+M2):**
 
@@ -609,15 +609,22 @@ Detailed history belongs in STATUS.md.
 * **Interrupt Manager** — SYSTEM_CALL, TIMER, IO_COMPLETE, ERROR phases, pending queue + log
 * **System Call Manager** — READ, WRITE, ALLOCATE, EXIT (stubs for IPC_SEND, IO_REQUEST)
 * **Event Log, Simulation Clock, Program Loader**
-* **All unit tests passing** (9 test files: CPU, memory, process, interrupt, syscall, types, loader, smoke)
-* **CMake + MinGW-w64 GCC 16.2.0 build verified**
+* **All unit tests passing** (10 test files), **CMake + MinGW-w64 GCC 16.2.0 build verified**
+
+**Implemented (M3: Paging / Virtual Memory):**
+
+* **Memory Manager** — per-process page tables, frame table, simulated swap, demand paging (program image stored in swap at creation; pages loaded on first access), page size 4 / 8 frames (configurable)
+* **Address translation** — logical address → page/offset → frame → physical address, with INVALID vs PAGE_FAULT distinction
+* **Page faults** — CPU raises PAGE_FAULT interrupt; Interrupt Manager dispatches; page loaded from swap; faulting instruction retried (fetch fault leaves PC unchanged; execute fault rolls back to MAR)
+* **Page replacement** — FIFO baseline with dirty-page write-back to swap
+* **Invalid access** — out-of-bounds logical access fails the process via the ERROR interrupt
+* **Memory statistics and events** — fault/replacement counters, used frames/words, swap usage, per-process fault counters, 8 new event types
 
 **Currently Working On:**
 
-1. Paging / Virtual Memory (Week 3)
-2. Full Interrupt Manager (timer, page fault, I/O priority) (Week 4)
+1. Full Interrupt Manager (timer, page fault, I/O priority) (Week 4)
+2. Process Manager full features (creation data, resource tracking, statistics)
 3. Scheduling policies: FCFS, Round Robin, Priority (Week 5)
-4. Process Manager full features (creation data, resource tracking, statistics)
 
 **Blocked By:**
 
@@ -630,7 +637,9 @@ git clone https://github.com/ManthanGadiya/AIOS.git
 cd AIOS/backend
 cmake -G "MinGW Makefiles" -DCMAKE_CXX_COMPILER="C:/Users/Admin/scoop/apps/mingw/current/bin/g++.exe" -B build .
 cmake --build build --config Debug
-.\build\tests\aios_tests.exe
+# Add the MinGW runtime to PATH so the test binary finds its DLLs:
+export PATH="/c/Users/Admin/scoop/apps/mingw/current/bin:$PATH"
+./build/tests/aios_tests.exe
 ```
 
 ---

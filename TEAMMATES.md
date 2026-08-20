@@ -83,8 +83,8 @@ Assignments must be confirmed before being treated as official.
 |---|---|---|---|
 | CPU | Manthan Gadiya | TBD | 🟢 Complete |
 | Process Management | Manthan Gadiya | TBD | 🟢 Complete |
-| Memory / Paging | Manthan Gadiya | TBD | 🟡 In Progress (flat RAM done, paging next) |
-| Interrupts / System Calls | Manthan Gadiya | TBD | 🟢 Complete (stub I/O/IPC) |
+| Memory / Paging | Manthan Gadiya | TBD | 🟢 Complete (flat RAM + page tables, frames, swap, FIFO) |
+| Interrupts / System Calls | Manthan Gadiya | TBD | 🟢 Complete (incl. PAGE_FAULT dispatch; stub I/O/IPC) |
 | Scheduling | TBD | TBD | ⚪ Not Started |
 | Synchronization | TBD | TBD | ⚪ Not Started |
 | IPC | TBD | TBD | ⚪ Not Started |
@@ -92,7 +92,7 @@ Assignments must be confirmed before being treated as official.
 | AI Agent Layer | TBD | TBD | ⚪ Not Started |
 | GUI | TBD | TBD | ⚪ Not Started |
 | Integration | TBD | TBD | ⚪ Not Started |
-| Testing | Manthan Gadiya | TBD | 🟢 Unit tests passing |
+| Testing | Manthan Gadiya | TBD | 🟢 Unit tests passing (10 test files) |
 
 ---
 
@@ -157,6 +157,17 @@ Next Recommended Step:
 ---
 
 # 8. Change Log
+
+## 2026-08-20
+
+* M3 Paging / Virtual Memory complete.
+* Memory Manager: page tables, frame table, simulated swap, demand paging, FIFO page replacement with dirty write-back.
+* PAGE_FAULT interrupt type added; Interrupt Manager dispatches faults to the Memory Manager.
+* CPU integrated: paged fetch/execute with instruction retry; invalid access fails the process via ERROR interrupt.
+* Process Manager integrated: paged createProcess with legacy flat-Memory fallback; memory released on terminate/fail/reset.
+* Memory statistics and 8 new memory event types added.
+* Unit tests: test_paging.cpp (14 T-PAGE cases); full suite 94 test cases / 442 assertions passing.
+* Committed and pushed to https://github.com/ManthanGadiya/AIOS.git.
 
 ## 2026-08-19
 

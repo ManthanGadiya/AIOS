@@ -4,7 +4,7 @@
 >
 > Update this file after every meaningful project change.
 
-**Last Updated:** 2026-08-19
+**Last Updated:** 2026-08-20
 
 ---
 
@@ -38,18 +38,18 @@ Final Demo
 
 # 2. Overall Status
 
-**Status:** 🟢 Core OS Implementation — M1/M2 Complete
+**Status:** 🟢 Core OS Implementation — M1/M2/M3 Complete
 
-**Implementation Status:** M1+M2 Complete — CPU, Memory, Process Management, Interrupts, System Calls implemented and tested
+**Implementation Status:** M1+M2+M3 Complete — CPU, Memory, Process Management, Interrupts, System Calls, Paging/Virtual Memory implemented and tested
 
 **GitHub Status:** https://github.com/ManthanGadiya/AIOS.git (main)
 
 **Current Focus:**
 
-* Core OS implementation (M1: Foundation + M2: Stage I CPU/System Calls) — **DONE**
-* C++ backend builds and tests pass
+* Core OS implementation (M1: Foundation + M2: Stage I CPU/System Calls + M3: Paging) — **DONE**
+* C++ backend builds and tests pass (94 test cases / 442 assertions)
 * GitHub repository confirmed and synced
-* Next: Paging/Virtual Memory (Week 3), Scheduling (Week 5), Full Interrupt Manager (Week 4)
+* Next: Scheduling (Week 5), Full Interrupt Manager (Week 4)
 
 ---
 
@@ -202,13 +202,24 @@ The C++ engine remains the simulation source of truth.
 * **Program Loader** — text instruction parsing + raw data words
 * **Unit Tests** — 9 test files, all passing (CPU, memory, process, interrupt, syscall, types, loader, smoke)
 
+### Implemented (M3: Paging / Virtual Memory)
+
+* **Memory Manager** — page tables per process, frame table, simulated swap, page size 4 / 8 frames (configurable), demand paging (program image stored in swap at creation; pages resident only on first access)
+* **Address translation** — logical address → page/offset → frame → physical address; INVALID vs PAGE_FAULT distinction
+* **Page fault handling** — PAGE_FAULT interrupt raised by the CPU, dispatched by the Interrupt Manager, page loaded from swap
+* **Page replacement** — FIFO baseline with dirty-page write-back to swap (docs/07 section 21)
+* **CPU integration** — fetch and LOAD/STORE/READ/WRITE route through the Memory Manager when attached; faulting instructions are retried (fetch faults do not advance PC; execute faults roll back PC to MAR); invalid accesses fail the process via the ERROR interrupt
+* **Process Manager integration** — paged createProcess (logical space starts at 0) with legacy flat-Memory fallback preserved; memory released on terminate/fail/reset
+* **Memory statistics** — page faults, replacements, used frames/words, swap usage, per-process fault counters
+* **Memory events** — PAGE_ALLOCATED, PAGE_ACCESSED, FRAME_ALLOCATED, PAGE_REPLACED, PAGE_LOADED, PAGE_SWAPPED_OUT, PAGE_SWAPPED_IN, INVALID_MEMORY_ACCESS
+* **Unit Tests** — test_paging.cpp (14 T-PAGE cases), all passing
+
 ---
 
 # 7. Currently In Progress
 
-### Core OS Implementation (M3+)
+### Core OS Implementation (M4+)
 
-* Paging / Virtual Memory (Week 3)
 * Process Manager full features (Week 4)
 * Full Interrupt Manager with timer/page fault/I/O priority (Week 4)
 * Scheduling policies (Week 5)
@@ -259,7 +270,7 @@ Do not invent assignments.
 
 ### Next Milestone (Week 3-4)
 
-1. Implement Paging / Virtual Memory (Memory Manager, Page Tables, Page Faults)
+1. ✅ Implement Paging / Virtual Memory (Memory Manager, Page Tables, Page Faults)
 2. Complete Process Manager (creation data, resource tracking, statistics)
 3. Full Interrupt Manager (timer, page fault, I/O priority queue, nested interrupt policy)
 4. Scheduler interface + FCFS + Round Robin
@@ -328,6 +339,19 @@ Meaningful commit created
 
 # 13. Latest Meaningful Change
 
+**2026-08-20**
+
+M3 Paging / Virtual Memory complete.
+
+* Memory Manager: page tables, frame table, simulated swap, demand paging, FIFO page replacement with dirty write-back
+* Address translation with INVALID vs PAGE_FAULT distinction; MemoryAccessResult API
+* PAGE_FAULT interrupt type added; Interrupt Manager dispatches faults to the Memory Manager
+* CPU integrated: paged fetch/execute with instruction retry (fetch fault does not advance PC; execute fault rolls back to MAR); invalid access fails the process via ERROR interrupt
+* Process Manager integrated: paged createProcess (logical base 0) with legacy flat-Memory fallback; memory released on terminate/fail/reset
+* Memory statistics (faults, replacements, used frames/words, swap usage) and 8 new memory event types
+* Unit tests: 14 new T-PAGE cases; full suite 94 test cases / 442 assertions passing
+* Build verified with MinGW-w64 GCC 16.2.0; committed and pushed to GitHub
+
 **2026-08-19**
 
 M1+M2 Core OS Implementation complete.
@@ -357,7 +381,7 @@ Governance documents populated and documentation references corrected.
 # 14. Latest Commit
 
 ```text
-a64551e docs: clean up AGENTS.md formatting and remove embedded status/teammates content
+6c24b75 feat(memory): implement paging/virtual memory (M3)
 ```
 
 ---
@@ -369,19 +393,21 @@ The README should contain only a concise version of this state:
 ```text
 AIOS is currently in the Core OS Implementation phase.
 
-M1 (Foundation) and M2 (Stage I: CPU/System Calls) are complete:
+M1 (Foundation), M2 (Stage I: CPU/System Calls) and M3 (Paging/Virtual Memory)
+are complete:
 - CPU Simulator with registers, fetch-decode-execute, full instruction set
-- Memory (flat RAM), Process Manager (PCB, states, queues, context switch)
-- Interrupt Manager, System Call Manager, Event Log, Simulation Clock
-- All unit tests passing, CMake + MinGW build verified
+- Memory (flat RAM) + Memory Manager (page tables, frames, swap, FIFO replacement)
+- Process Manager (PCB, states, queues, context switch)
+- Interrupt Manager (incl. PAGE_FAULT dispatch) + System Call Manager
+- Event Log, Simulation Clock, Program Loader
+- All unit tests passing (94 test cases), CMake + MinGW build verified
 
 The architecture, OS subsystems, AI-agent layer, GUI direction,
 demo scenarios and testing strategy have been defined.
 
 Next:
-1. Paging / Virtual Memory (Week 3)
-2. Full Interrupt Manager + Process Manager (Week 4)
-3. Scheduling policies (Week 5)
+1. Full Interrupt Manager + Process Manager (Week 4)
+2. Scheduling policies (Week 5)
 ```
 
 ---
