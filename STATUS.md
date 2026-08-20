@@ -290,7 +290,7 @@ Do not invent assignments.
 1. ✅ Implement Paging / Virtual Memory (Memory Manager, Page Tables, Page Faults)
 2. ✅ Complete Process Manager (creation data, resource tracking, statistics)
 3. ✅ Full Interrupt Manager (timer, page fault, I/O priority queue, nested interrupt policy)
-4. Scheduler interface + FCFS + Round Robin
+4. ✅ Scheduler interface + FCFS + Round Robin + Priority
 
 ---
 
@@ -355,6 +355,18 @@ Meaningful commit created
 ---
 
 # 13. Latest Meaningful Change
+
+**2026-08-20 (M5-Scheduler)**
+
+Scheduler complete: FCFS, Round Robin and Priority policies.
+
+* SchedulingPolicy (FCFS / ROUND_ROBIN / PRIORITY) with policy name accessor; larger priority value = higher priority (preemptive), consistent with docs/08 section 13
+* Persistent ready order reconciled with the Process Manager's READY set on every decision (blocked/terminated pids dropped, newly READY pids appended in PID order)
+* FCFS: non-preemptive FIFO; Round Robin: quantum expiry preempts the running process to the back of the queue (docs/08 sections 7-10); Priority: preempts only on strictly higher priority, tie-breaks by ready time then PID
+* Scheduler events: SCHEDULER_STARTED (policy change), PROCESS_SELECTED, PROCESS_PREEMPTED, TIME_QUANTUM_EXPIRED (docs/08 section 40)
+* Decision history (cycle, policy, selected/preempted pid, reason), context-switch count, reset(); TIMER interrupt wired through InterruptManager::setScheduler() for Round Robin
+* Unit tests: test_scheduler.cpp (16 T-SCHED cases); full suite 131 test cases / 717 assertions passing
+* Build verified with MinGW-w64 GCC 16.2.0; committed and pushed to GitHub
 
 **2026-08-20 (M5)**
 
@@ -421,7 +433,7 @@ Governance documents populated and documentation references corrected.
 # 14. Latest Commit
 
 ```text
-74e0ca8 feat(process): add resource tracking, statistics and agent process creation (M5)
+90c1df4 feat(sched): add FCFS, round robin and priority scheduling (M5)
 ```
 
 ---
@@ -434,19 +446,21 @@ The README should contain only a concise version of this state:
 AIOS is currently in the Core OS Implementation phase.
 
 M1 (Foundation), M2 (Stage I: CPU/System Calls), M3 (Paging/Virtual Memory),
-M4 (Full Interrupt Manager) and M5 (Process Manager Full Features) are complete:
+M4 (Full Interrupt Manager), M5 (Process Manager Full Features) and
+M5-Scheduler (FCFS / Round Robin / Priority) are complete:
 - CPU Simulator with registers, fetch-decode-execute, full instruction set
 - Memory (flat RAM) + Memory Manager (page tables, frames, swap, FIFO replacement)
 - Process Manager (PCB, states, queues, context switch, resource tracking, statistics)
 - Interrupt Manager (priority queue, timer, nested policy, PAGE_FAULT dispatch) + System Call Manager
+- Scheduler (FCFS, Round Robin with quantum preemption, preemptive Priority, decision history)
 - Event Log, Simulation Clock, Program Loader, Timer
-- All unit tests passing (115 test cases), CMake + MinGW build verified
+- All unit tests passing (131 test cases), CMake + MinGW build verified
 
 The architecture, OS subsystems, AI-agent layer, GUI direction,
 demo scenarios and testing strategy have been defined.
 
 Next:
-1. Scheduling policies (Week 5)
+1. Synchronization (Week 6)
 ```
 
 ---

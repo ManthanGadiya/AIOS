@@ -160,6 +160,15 @@ Next Recommended Step:
 
 ## 2026-08-20
 
+* M5 Scheduler complete: FCFS, Round Robin and Priority policies.
+* SchedulingPolicy (FCFS / ROUND_ROBIN / PRIORITY); larger priority value = higher priority, preemptive (docs/08 section 13).
+* Persistent ready order reconciled with the Process Manager's READY set on every decision (docs/08 section 6).
+* FCFS non-preemptive FIFO; Round Robin preempts on quantum expiry and rotates the running process to the back (docs/08 sections 7-10); Priority preempts only on strictly higher priority.
+* Scheduler events: SCHEDULER_STARTED, PROCESS_SELECTED, PROCESS_PREEMPTED, TIME_QUANTUM_EXPIRED (docs/08 section 40); decision history + context-switch count + reset().
+* TIMER interrupt wired through InterruptManager::setScheduler() so Round Robin runs from the interrupt path (docs/08 section 24).
+* Unit tests: test_scheduler.cpp (16 T-SCHED cases); full suite 131 test cases / 717 assertions passing.
+* Committed and pushed to https://github.com/ManthanGadiya/AIOS.git.
+
 * M5 Process Manager full features complete (creation data, resource tracking, statistics).
 * ProcessType (NORMAL / AI_AGENT) on the PCB; createAgentProcess() wrapper; AI agents remain ordinary OS processes (docs/06 section 34).
 * CPU-time accounting charged on CPU release (preempt/block/terminate/fail/reset); waiting-time accounting charged centrally when leaving the READY queue.

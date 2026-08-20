@@ -582,7 +582,7 @@ Keep this section concise.
 Detailed history belongs in STATUS.md.
 -->
 
-**Phase:** 🟢 Core OS Implementation — M1/M2/M3 + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) Complete
+**Phase:** 🟢 Core OS Implementation — M1/M2/M3 + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority) Complete
 
 **Current State:**
 
@@ -599,7 +599,7 @@ Detailed history belongs in STATUS.md.
 * Team/status tracking established.
 * Canonical repository structure established.
 * **GitHub repository confirmed: https://github.com/ManthanGadiya/AIOS.git**
-* **M1 (Foundation) + M2 (Stage I: CPU/System Calls) + M3 (Paging/Virtual Memory) + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) implemented and tested**
+* **M1 (Foundation) + M2 (Stage I: CPU/System Calls) + M3 (Paging/Virtual Memory) + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority) implemented and tested**
 
 **Implemented (M1+M2):**
 
@@ -633,9 +633,16 @@ Detailed history belongs in STATUS.md.
 * **Resource tracking** — CPU time charged on CPU release (preempt/block/terminate/fail), waiting time charged in the READY queue, response time (first run), turnaround time, state-change and context-switch counters
 * **Statistics API** — `getProcessStatistics()` / `getAllProcessStatistics()` / `cpuUtilization()`; per-process page faults surfaced from the Memory Manager
 
+**Implemented (M5-Scheduler):**
+
+* **Scheduling policies** — FCFS (non-preemptive FIFO), Round Robin (quantum expiry preempts and rotates to the back), Priority (larger value = higher priority, preemptive; tie-breaks by ready time then PID)
+* **Scheduler state** — persistent ready order reconciled with the Process Manager's READY set on every decision; policy change emits SCHEDULER_STARTED
+* **Scheduler events** — PROCESS_SELECTED / PROCESS_PREEMPTED / TIME_QUANTUM_EXPIRED (docs/08 section 40); decision history (cycle, policy, selected/preempted pid, reason), context-switch count, reset()
+* **Timer integration** — TIMER interrupt drives Round Robin preemption through `InterruptManager::setScheduler()` (docs/08 section 24)
+
 **Currently Working On:**
 
-1. Scheduling policies: FCFS, Round Robin, Priority (Week 5)
+1. Synchronization (Week 6)
 
 **Blocked By:**
 
