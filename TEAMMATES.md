@@ -84,7 +84,7 @@ Assignments must be confirmed before being treated as official.
 | CPU | Manthan Gadiya | TBD | 🟢 Complete |
 | Process Management | Manthan Gadiya | TBD | 🟢 Complete |
 | Memory / Paging | Manthan Gadiya | TBD | 🟢 Complete (flat RAM + page tables, frames, swap, FIFO) |
-| Interrupts / System Calls | Manthan Gadiya | TBD | 🟢 Complete (incl. PAGE_FAULT dispatch; stub I/O/IPC) |
+| Interrupts / System Calls | Manthan Gadiya | TBD | 🟢 Complete (priority queue, timer, nested policy, PAGE_FAULT dispatch; stub I/O/IPC) |
 | Scheduling | TBD | TBD | ⚪ Not Started |
 | Synchronization | TBD | TBD | ⚪ Not Started |
 | IPC | TBD | TBD | ⚪ Not Started |
@@ -159,6 +159,15 @@ Next Recommended Step:
 # 8. Change Log
 
 ## 2026-08-20
+
+* M4 Full Interrupt Manager complete.
+* Interrupt priority queue: pending interrupts serviced in priority order (ERROR > PAGE_FAULT > SYSTEM_CALL > IO_COMPLETE > TIMER), FIFO within equal priority; ordering centralized in InterruptManager::priorityOf().
+* Nested-interrupt policy: interrupts arriving while an ISR executes are deferred, never nested; serviceNextInterrupt() refuses reentrancy.
+* Timer component: periodic TIMER interrupts on a configurable quantum (default 4 cycles); basis for Round Robin scheduling.
+* Lifecycle observability (SERVICING -> COMPLETED) and pendingInterrupts() accessor.
+* Unit tests: test_timer.cpp (7 T-TIMER cases) + T-INT-009/010/011; T-INT-002 updated from FIFO to priority; full suite 104 test cases / 524 assertions passing.
+* docs/05 section 19 updated with the finalized priority ordering.
+* Committed and pushed to https://github.com/ManthanGadiya/AIOS.git.
 
 * M3 Paging / Virtual Memory complete.
 * Memory Manager: page tables, frame table, simulated swap, demand paging, FIFO page replacement with dirty write-back.

@@ -544,6 +544,22 @@ The exact priority ordering shall be finalized during implementation and testing
 
 The design should allow interrupt priorities to be changed without modifying unrelated components.
 
+**Implementation note (2026-08-20):** the priority ordering was finalized during implementation as:
+
+```text
+High
+ │
+ ├── ERROR        (priority 10)
+ ├── PAGE_FAULT   (priority 20)
+ ├── SYSTEM_CALL  (priority 30)
+ ├── IO_COMPLETE  (priority 40)
+ └── TIMER        (priority 50)
+ │
+Low
+```
+
+Lower value = higher priority. The ordering is centralized in `InterruptManager::priorityOf()` so it can be changed in one place without modifying the dispatcher.
+
 ---
 
 # 20. Nested Interrupts

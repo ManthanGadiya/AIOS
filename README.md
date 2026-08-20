@@ -582,7 +582,7 @@ Keep this section concise.
 Detailed history belongs in STATUS.md.
 -->
 
-**Phase:** 🟢 Core OS Implementation — M1/M2/M3 Complete
+**Phase:** 🟢 Core OS Implementation — M1/M2/M3 + M4 (Full Interrupt Manager) Complete
 
 **Current State:**
 
@@ -599,7 +599,7 @@ Detailed history belongs in STATUS.md.
 * Team/status tracking established.
 * Canonical repository structure established.
 * **GitHub repository confirmed: https://github.com/ManthanGadiya/AIOS.git**
-* **M1 (Foundation) + M2 (Stage I: CPU/System Calls) + M3 (Paging/Virtual Memory) implemented and tested**
+* **M1 (Foundation) + M2 (Stage I: CPU/System Calls) + M3 (Paging/Virtual Memory) + M4 (Full Interrupt Manager) implemented and tested**
 
 **Implemented (M1+M2):**
 
@@ -620,11 +620,17 @@ Detailed history belongs in STATUS.md.
 * **Invalid access** — out-of-bounds logical access fails the process via the ERROR interrupt
 * **Memory statistics and events** — fault/replacement counters, used frames/words, swap usage, per-process fault counters, 8 new event types
 
+**Implemented (M4: Full Interrupt Manager):**
+
+* **Interrupt priority queue** — pending interrupts serviced in priority order (ERROR > PAGE_FAULT > SYSTEM_CALL > IO_COMPLETE > TIMER), FIFO within equal priority; ordering centralized in `InterruptManager::priorityOf()`
+* **Nested-interrupt policy** — interrupts arriving while an ISR executes are deferred, never nested
+* **Timer** — periodic TIMER interrupts on a configurable quantum (default 4 cycles), basis for Round Robin
+* **Lifecycle observability** — requests marked SERVICING then COMPLETED; `pendingInterrupts()` accessor
+
 **Currently Working On:**
 
-1. Full Interrupt Manager (timer, page fault, I/O priority) (Week 4)
-2. Process Manager full features (creation data, resource tracking, statistics)
-3. Scheduling policies: FCFS, Round Robin, Priority (Week 5)
+1. Process Manager full features (creation data, resource tracking, statistics)
+2. Scheduling policies: FCFS, Round Robin, Priority (Week 5)
 
 **Blocked By:**
 

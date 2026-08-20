@@ -38,18 +38,18 @@ Final Demo
 
 # 2. Overall Status
 
-**Status:** 🟢 Core OS Implementation — M1/M2/M3 Complete
+**Status:** 🟢 Core OS Implementation — M1/M2/M3 + Full Interrupt Manager (M4) Complete
 
-**Implementation Status:** M1+M2+M3 Complete — CPU, Memory, Process Management, Interrupts, System Calls, Paging/Virtual Memory implemented and tested
+**Implementation Status:** M1+M2+M3 + M4 (Full Interrupt Manager) Complete — CPU, Memory, Process Management, Interrupts, System Calls, Paging/Virtual Memory, Interrupt Priority/Timer implemented and tested
 
 **GitHub Status:** https://github.com/ManthanGadiya/AIOS.git (main)
 
 **Current Focus:**
 
-* Core OS implementation (M1: Foundation + M2: Stage I CPU/System Calls + M3: Paging) — **DONE**
-* C++ backend builds and tests pass (94 test cases / 442 assertions)
+* Core OS implementation (M1: Foundation + M2: Stage I CPU/System Calls + M3: Paging + M4: Full Interrupt Manager) — **DONE**
+* C++ backend builds and tests pass (104 test cases / 524 assertions)
 * GitHub repository confirmed and synced
-* Next: Scheduling (Week 5), Full Interrupt Manager (Week 4)
+* Next: Process Manager full features (Week 4), Scheduling (Week 5)
 
 ---
 
@@ -214,6 +214,15 @@ The C++ engine remains the simulation source of truth.
 * **Memory events** — PAGE_ALLOCATED, PAGE_ACCESSED, FRAME_ALLOCATED, PAGE_REPLACED, PAGE_LOADED, PAGE_SWAPPED_OUT, PAGE_SWAPPED_IN, INVALID_MEMORY_ACCESS
 * **Unit Tests** — test_paging.cpp (14 T-PAGE cases), all passing
 
+### Implemented (M4: Full Interrupt Manager)
+
+* **Interrupt priority queue** — pending interrupts serviced in priority order (docs/05 section 19, finalized during implementation): ERROR > PAGE_FAULT > SYSTEM_CALL > IO_COMPLETE > TIMER; lower value = higher priority. Ordering centralized in `InterruptManager::priorityOf()` so it can be changed in one place
+* **Nested-interrupt policy** — interrupts arriving while an ISR executes are queued/deferred, never nested; `serviceNextInterrupt()` refuses to start a second ISR while one is running (docs/05 section 20)
+* **FIFO within a priority class** — equal-priority requests are serviced in arrival order (docs/05 section 21)
+* **Lifecycle observability** — requests marked SERVICING while dispatched, then COMPLETED (docs/05 section 29); `pendingInterrupts()` accessor exposes the pending queue (docs/05 section 34)
+* **Timer** — new Timer component generates periodic TIMER interrupts when a configurable quantum of simulated cycles elapses (default 4, docs/05 section 32 example; 0 disables); basis for Round Robin scheduling (docs/08, Week 5)
+* **Unit Tests** — test_timer.cpp (7 T-TIMER cases) + T-INT-009/010/011; T-INT-002 updated from FIFO to priority; full suite 104 test cases / 524 assertions passing
+
 ---
 
 # 7. Currently In Progress
@@ -221,7 +230,6 @@ The C++ engine remains the simulation source of truth.
 ### Core OS Implementation (M4+)
 
 * Process Manager full features (Week 4)
-* Full Interrupt Manager with timer/page fault/I/O priority (Week 4)
 * Scheduling policies (Week 5)
 
 ---
@@ -272,7 +280,7 @@ Do not invent assignments.
 
 1. ✅ Implement Paging / Virtual Memory (Memory Manager, Page Tables, Page Faults)
 2. Complete Process Manager (creation data, resource tracking, statistics)
-3. Full Interrupt Manager (timer, page fault, I/O priority queue, nested interrupt policy)
+3. ✅ Full Interrupt Manager (timer, page fault, I/O priority queue, nested interrupt policy)
 4. Scheduler interface + FCFS + Round Robin
 
 ---
@@ -339,7 +347,19 @@ Meaningful commit created
 
 # 13. Latest Meaningful Change
 
-**2026-08-20**
+**2026-08-20 (M4)**
+
+Full Interrupt Manager complete.
+
+* Interrupt priority queue: pending interrupts serviced in priority order (ERROR > PAGE_FAULT > SYSTEM_CALL > IO_COMPLETE > TIMER), FIFO within equal priority; ordering centralized in InterruptManager::priorityOf()
+* Nested-interrupt policy: interrupts arriving while an ISR executes are deferred, never nested
+* Timer component: periodic TIMER interrupts on a configurable quantum (default 4 cycles, docs/05 section 32; 0 disables); basis for Round Robin (docs/08)
+* Lifecycle observability (SERVICING -> COMPLETED) and pendingInterrupts() accessor (docs/05 section 34)
+* Unit tests: test_timer.cpp (7 T-TIMER cases) + T-INT-009/010/011; T-INT-002 updated from FIFO to priority; full suite 104 test cases / 524 assertions passing
+* docs/05 section 19 updated with the finalized priority ordering
+* Build verified with MinGW-w64 GCC 16.2.0; committed and pushed to GitHub
+
+**2026-08-20 (M3)**
 
 M3 Paging / Virtual Memory complete.
 
@@ -381,7 +401,7 @@ Governance documents populated and documentation references corrected.
 # 14. Latest Commit
 
 ```text
-6c24b75 feat(memory): implement paging/virtual memory (M3)
+14d759e feat(interrupt): implement priority queue, timer and nested policy (M4)
 ```
 
 ---
@@ -393,20 +413,20 @@ The README should contain only a concise version of this state:
 ```text
 AIOS is currently in the Core OS Implementation phase.
 
-M1 (Foundation), M2 (Stage I: CPU/System Calls) and M3 (Paging/Virtual Memory)
-are complete:
+M1 (Foundation), M2 (Stage I: CPU/System Calls), M3 (Paging/Virtual Memory)
+and M4 (Full Interrupt Manager) are complete:
 - CPU Simulator with registers, fetch-decode-execute, full instruction set
 - Memory (flat RAM) + Memory Manager (page tables, frames, swap, FIFO replacement)
 - Process Manager (PCB, states, queues, context switch)
-- Interrupt Manager (incl. PAGE_FAULT dispatch) + System Call Manager
-- Event Log, Simulation Clock, Program Loader
-- All unit tests passing (94 test cases), CMake + MinGW build verified
+- Interrupt Manager (priority queue, timer, nested policy, PAGE_FAULT dispatch) + System Call Manager
+- Event Log, Simulation Clock, Program Loader, Timer
+- All unit tests passing (104 test cases), CMake + MinGW build verified
 
 The architecture, OS subsystems, AI-agent layer, GUI direction,
 demo scenarios and testing strategy have been defined.
 
 Next:
-1. Full Interrupt Manager + Process Manager (Week 4)
+1. Process Manager full features (Week 4)
 2. Scheduling policies (Week 5)
 ```
 
