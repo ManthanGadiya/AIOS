@@ -6,6 +6,7 @@ add_library(aios_core STATIC
     aios/process/ProcessManager.cpp
     aios/interrupt/InterruptManager.cpp
     aios/interrupt/SystemCallManager.cpp
+    aios/interrupt/Timer.cpp
 )
 
 target_include_directories(aios_core PUBLIC

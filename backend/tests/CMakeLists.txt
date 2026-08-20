@@ -11,6 +11,7 @@ add_executable(aios_tests
     test_interrupt.cpp
     test_syscall.cpp
     test_paging.cpp
+    test_timer.cpp
 )
 
 target_include_directories(aios_tests PRIVATE

@@ -74,7 +74,7 @@ TEST_CASE("T-INT-001: generateInterrupt queues a request with a new id") {
     CHECK(h.im.phase() == InterruptPhase::PENDING);
 }
 
-TEST_CASE("T-INT-002: interrupts are serviced FIFO") {
+TEST_CASE("T-INT-002: interrupts are serviced by priority (SYSTEM_CALL before TIMER)") {
     Harness h;
     const int first = h.im.generateInterrupt(InterruptType::TIMER, 1, 0);
     const int second = h.im.generateInterrupt(InterruptType::SYSTEM_CALL, 2, SYSCALL_EXIT);
@@ -83,8 +83,9 @@ TEST_CASE("T-INT-002: interrupts are serviced FIFO") {
 
     CHECK(h.im.serviceNextInterrupt());
     CHECK(h.im.pendingCount() == 1);
-    CHECK(h.im.log()[0].phase == InterruptPhase::COMPLETED);
-    CHECK(h.im.log()[1].phase == InterruptPhase::PENDING);
+    // The higher-priority SYSTEM_CALL is serviced before the TIMER.
+    CHECK(h.im.log()[1].phase == InterruptPhase::COMPLETED);
+    CHECK(h.im.log()[0].phase == InterruptPhase::PENDING);
     CHECK(h.im.phase() == InterruptPhase::COMPLETED);
 
     CHECK(h.im.serviceNextInterrupt());
@@ -154,4 +155,60 @@ TEST_CASE("T-INT-008: servicing records an INTERRUPT event") {
         }
     }
     CHECK(found);
+}
+
+TEST_CASE("T-INT-009: interrupt priority order follows docs/05 section 19") {
+    // Lower value = higher priority. Order finalized during implementation.
+    CHECK(InterruptManager::priorityOf(InterruptType::ERROR) <
+          InterruptManager::priorityOf(InterruptType::PAGE_FAULT));
+    CHECK(InterruptManager::priorityOf(InterruptType::PAGE_FAULT) <
+          InterruptManager::priorityOf(InterruptType::SYSTEM_CALL));
+    CHECK(InterruptManager::priorityOf(InterruptType::SYSTEM_CALL) <
+          InterruptManager::priorityOf(InterruptType::IO_COMPLETE));
+    CHECK(InterruptManager::priorityOf(InterruptType::IO_COMPLETE) <
+          InterruptManager::priorityOf(InterruptType::TIMER));
+}
+
+TEST_CASE("T-INT-010: equal-priority interrupts are serviced FIFO") {
+    Harness h;
+    h.im.generateInterrupt(InterruptType::TIMER, 1, 0);
+    h.im.generateInterrupt(InterruptType::TIMER, 2, 0);
+    h.im.generateInterrupt(InterruptType::TIMER, 3, 0);
+
+    CHECK(h.im.serviceNextInterrupt());
+    CHECK(h.im.log()[0].phase == InterruptPhase::COMPLETED); // oldest first
+    CHECK(h.im.log()[1].phase == InterruptPhase::PENDING);
+    CHECK(h.im.log()[2].phase == InterruptPhase::PENDING);
+
+    CHECK(h.im.serviceNextInterrupt());
+    CHECK(h.im.log()[1].phase == InterruptPhase::COMPLETED);
+
+    CHECK(h.im.serviceNextInterrupt());
+    CHECK(h.im.log()[2].phase == InterruptPhase::COMPLETED);
+    CHECK(h.im.pendingCount() == 0);
+}
+
+TEST_CASE("T-INT-011: nested interrupts are deferred while an ISR executes") {
+    Harness h;
+    // Interrupts arriving while the manager is busy are queued, never nested
+    // (docs/05 section 20), and all are eventually serviced.
+    h.im.generateInterrupt(InterruptType::TIMER, INVALID_PID, 0);
+    h.im.generateInterrupt(InterruptType::SYSTEM_CALL, INVALID_PID, SYSCALL_EXIT);
+    h.im.generateInterrupt(InterruptType::TIMER, INVALID_PID, 0);
+
+    CHECK(h.im.pendingCount() == 3);
+    const std::vector<InterruptRequest> pending = h.im.pendingInterrupts();
+    REQUIRE(pending.size() == 3);
+    CHECK(pending[0].type == InterruptType::TIMER);
+    CHECK(pending[1].type == InterruptType::SYSTEM_CALL);
+    CHECK(pending[2].type == InterruptType::TIMER);
+
+    // Serviced in priority order, then the queue drains.
+    REQUIRE(h.im.serviceNextInterrupt());
+    CHECK(h.im.log()[1].phase == InterruptPhase::COMPLETED); // SYSTEM_CALL first
+    REQUIRE(h.im.serviceNextInterrupt());
+    CHECK(h.im.log()[0].phase == InterruptPhase::COMPLETED);
+    REQUIRE(h.im.serviceNextInterrupt());
+    CHECK(h.im.log()[2].phase == InterruptPhase::COMPLETED);
+    CHECK_FALSE(h.im.hasPending());
 }

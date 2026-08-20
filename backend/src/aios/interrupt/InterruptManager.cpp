@@ -4,7 +4,23 @@
 #include <aios/memory/MemoryManager.hpp>
 #include <aios/process/ProcessManager.hpp>
 
+#include <iterator>
+
 namespace aios {
+
+int InterruptManager::priorityOf(InterruptType type) {
+    // docs/05 section 19: lower value = higher priority. Order finalized
+    // during implementation: ERROR > PAGE_FAULT > SYSTEM_CALL > IO_COMPLETE >
+    // TIMER. Changing the ordering here does not require touching dispatch().
+    switch (type) {
+        case InterruptType::ERROR: return 10;
+        case InterruptType::PAGE_FAULT: return 20;
+        case InterruptType::SYSTEM_CALL: return 30;
+        case InterruptType::IO_COMPLETE: return 40;
+        case InterruptType::TIMER: return 50;
+    }
+    return 100;
+}
 
 int InterruptManager::generateInterrupt(InterruptType type, int pid, int32_t data) {
     InterruptRequest req;
@@ -20,13 +36,31 @@ int InterruptManager::generateInterrupt(InterruptType type, int pid, int32_t dat
 }
 
 bool InterruptManager::serviceNextInterrupt() {
+    // Nested interrupts are deferred: while an ISR is executing the manager
+    // does not start another one (docs/05 section 20).
+    if (phase_ == InterruptPhase::SERVICING) {
+        return false;
+    }
     if (pending_.empty()) {
         return false;
     }
-    const InterruptRequest req = pending_.front();
-    pending_.pop_front();
+    // Service the highest-priority pending request (docs/05 section 19). Among
+    // requests of equal priority the oldest is serviced first (FIFO within a
+    // priority class).
+    auto best = pending_.begin();
+    for (auto it = std::next(pending_.begin()); it != pending_.end(); ++it) {
+        if (priorityOf(it->type) < priorityOf(best->type)) {
+            best = it;
+        }
+    }
+    const InterruptRequest req = *best;
+    pending_.erase(best);
     dispatch(req);
     return true;
+}
+
+std::vector<InterruptRequest> InterruptManager::pendingInterrupts() const {
+    return {pending_.begin(), pending_.end()};
 }
 
 void InterruptManager::reset() {
@@ -42,6 +76,12 @@ void InterruptManager::reset() {
 
 void InterruptManager::dispatch(const InterruptRequest& req) {
     phase_ = InterruptPhase::SERVICING;
+    for (auto& entry : log_) {
+        if (entry.id == req.id) {
+            entry.phase = InterruptPhase::SERVICING;
+            break;
+        }
+    }
     record(EventType::INTERRUPT, interruptTypeToString(req.type) + " pid=" +
                                      std::to_string(req.pid) +
                                      " data=" + std::to_string(req.data));
@@ -67,8 +107,9 @@ void InterruptManager::dispatch(const InterruptRequest& req) {
             memoryManager_->handlePageFault(req.pid, static_cast<uint32_t>(req.data));
         }
     }
-    // TIMER and IO_COMPLETE are observed and logged only in Stage I
-    // (docs/05 section 20: queue policy finalized during implementation).
+    // TIMER and IO_COMPLETE handlers are placeholders in this milestone: TIMER
+    // will drive the scheduler (docs/08, Week 5) and IO_COMPLETE the I/O
+    // manager (docs/11). Both are still logged and completed.
 
     for (auto& entry : log_) {
         if (entry.id == req.id) {

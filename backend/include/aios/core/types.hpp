@@ -11,6 +11,7 @@
 namespace aios {
 
 constexpr int INVALID_PID = -1;
+constexpr int INVALID_INTERRUPT = 0;
 
 // ---------------------------------------------------------------------------
 // Instruction set (docs/04 section 11).
