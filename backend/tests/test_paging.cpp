@@ -338,3 +338,30 @@ TEST_CASE("T-PAGE-014: legacy flat-memory path still works without MemoryManager
     CHECK(pcb->baseAddress == 0);
     CHECK(pcb->context.pc == 0);
 }
+
+TEST_CASE("T-PAGE-015: process statistics surface per-process page faults") {
+    Harness h;
+    h.mm.initialize(4, 2);
+    std::vector<int32_t> program = {Instruction{Opcode::LOAD, 6}.toWord(),
+                                    Instruction{Opcode::WRITE, 6}.toWord(),
+                                    Instruction{Opcode::HALT, 0}.toWord(), 0,
+                                    0, 0, 42, 0};
+    const int pid = h.pm.createProcess("paged", 1, program, 0);
+    REQUIRE(pid != INVALID_PID);
+    REQUIRE(h.pm.admit(pid));
+    REQUIRE(h.pm.dispatch(pid));
+
+    // The first fetch faults (page 0 not resident). The interrupt manager
+    // loads the page through the MemoryManager, which counts it per process.
+    h.clock.tick();
+    h.cpu.executeCycle();
+    REQUIRE(h.im.serviceNextInterrupt());
+    h.cpu.resume();
+
+    const auto s = h.pm.getProcessStatistics(pid);
+    REQUIRE(s.has_value());
+    CHECK(s->pageFaults == 1);
+    CHECK(s->type == ProcessType::NORMAL);
+    CHECK(s->contextSwitches == 1);
+    CHECK(s->cpuTime == 0); // the current run is charged when the CPU is released
+}

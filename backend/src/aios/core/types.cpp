@@ -123,6 +123,14 @@ std::string processStateToString(ProcessState state) {
     return "UNKNOWN";
 }
 
+std::string processTypeToString(ProcessType type) {
+    switch (type) {
+        case ProcessType::NORMAL:   return "NORMAL";
+        case ProcessType::AI_AGENT: return "AI_AGENT";
+    }
+    return "UNKNOWN";
+}
+
 std::string cpuStateToString(CpuState state) {
     switch (state) {
         case CpuState::IDLE:       return "IDLE";

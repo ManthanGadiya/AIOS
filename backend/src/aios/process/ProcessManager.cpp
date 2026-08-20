@@ -9,7 +9,8 @@
 namespace aios {
 
 int ProcessManager::createProcess(const std::string& name, int priority,
-                                  const std::vector<int32_t>& program, uint32_t base) {
+                                  const std::vector<int32_t>& program, uint32_t base,
+                                  ProcessType type) {
     if (!memory_ || program.empty()) {
         return INVALID_PID;
     }
@@ -28,6 +29,7 @@ int ProcessManager::createProcess(const std::string& name, int priority,
     pcb.pid = pid;
     pcb.name = name;
     pcb.priority = priority;
+    pcb.type = type;
     pcb.state = ProcessState::NEW;
     pcb.baseAddress = memoryManager_ ? 0 : base;
     pcb.programSize = static_cast<uint32_t>(program.size());
@@ -39,6 +41,11 @@ int ProcessManager::createProcess(const std::string& name, int priority,
         eventLog_->record(EventType::PROCESS_CREATED, pid, cycle, name);
     }
     return pid;
+}
+
+int ProcessManager::createAgentProcess(const std::string& name, int priority,
+                                       const std::vector<int32_t>& program, uint32_t base) {
+    return createProcess(name, priority, program, base, ProcessType::AI_AGENT);
 }
 
 int ProcessManager::runningPid() const {
@@ -60,11 +67,20 @@ bool ProcessManager::dispatch(int pid) {
         ProcessControlBlock* cur = getProcess(current);
         if (cur && cur->state == ProcessState::RUNNING) {
             saveRunningContext();
+            chargeCpuTime(*cur);
             transition(current, ProcessState::READY, "preempted");
         }
     }
+    // Leaving the ready queue is charged centrally in transition().
     cpu_->loadContext(pcb->context, pid);
     transition(pid, ProcessState::RUNNING, "dispatch");
+    // CPU-time accounting: the run is charged when the process leaves the CPU.
+    pcb->onCpu = true;
+    pcb->lastCpuCycle = clock_ ? clock_->cycle() : 0;
+    ++pcb->contextSwitchCount;
+    if (pcb->firstRunCycle == 0) {
+        pcb->firstRunCycle = clock_ ? clock_->cycle() : 0;
+    }
     if (eventLog_) {
         eventLog_->record(EventType::CONTEXT_SWITCH, pid, clock_ ? clock_->cycle() : 0,
                           "dispatch");
@@ -148,6 +164,11 @@ void ProcessManager::reset() {
             memoryManager_->releaseProcessMemory(pid);
         }
     }
+    for (auto& [pid, pcb] : pcbs_) {
+        (void)pid;
+        chargeCpuTime(pcb);
+        chargeWaitingTime(pcb);
+    }
     pcbs_.clear();
     nextPid_ = 1;
 }
@@ -196,8 +217,19 @@ bool ProcessManager::transition(int pid, ProcessState to, const std::string& rea
     }
 
     pcb->state = to;
+    ++pcb->stateChangeCount;
+    // Leave the ready queue: charge the time spent waiting (docs/06 §29).
+    // RUNNING -> READY is charged here too when the preempted process is
+    // re-dispatched later.
+    if (from == ProcessState::READY && to != ProcessState::READY) {
+        chargeWaitingTime(*pcb);
+    }
     if (to == ProcessState::TERMINATED || to == ProcessState::FAILED) {
         pcb->terminatedCycle = clock_ ? clock_->cycle() : 0;
+    }
+    if (to == ProcessState::READY) {
+        pcb->readySinceCycle = clock_ ? clock_->cycle() : 0;
+        pcb->inReadyQueue = true;
     }
     if (eventLog_) {
         eventLog_->record(EventType::PROCESS_STATE_CHANGED, pid,
@@ -221,8 +253,102 @@ void ProcessManager::saveRunningContext() {
 
 void ProcessManager::releaseCpuIfRunning(int pid) {
     if (cpu_ && cpu_->currentProcess() == pid) {
+        if (ProcessControlBlock* pcb = getProcess(pid)) {
+            chargeCpuTime(*pcb);
+        }
         cpu_->reset();
     }
+}
+
+void ProcessManager::chargeCpuTime(ProcessControlBlock& pcb) {
+    if (!pcb.onCpu) {
+        return;
+    }
+    pcb.cpuTime += (clock_ ? clock_->cycle() : 0) - pcb.lastCpuCycle;
+    pcb.onCpu = false;
+    pcb.lastCpuCycle = 0;
+}
+
+void ProcessManager::chargeWaitingTime(ProcessControlBlock& pcb) {
+    if (!pcb.inReadyQueue) {
+        return;
+    }
+    pcb.waitingTime += (clock_ ? clock_->cycle() : 0) - pcb.readySinceCycle;
+    pcb.readySinceCycle = 0;
+    pcb.inReadyQueue = false;
+}
+
+// ---------------------------------------------------------------------------
+// Process statistics (docs/06 sections 28-29)
+// ---------------------------------------------------------------------------
+
+std::optional<ProcessStatistics> ProcessManager::getProcessStatistics(int pid) const {
+    const ProcessControlBlock* pcb = getProcess(pid);
+    if (!pcb) {
+        return std::nullopt;
+    }
+    ProcessStatistics s;
+    s.pid = pcb->pid;
+    s.name = pcb->name;
+    s.state = pcb->state;
+    s.type = pcb->type;
+    s.priority = pcb->priority;
+    s.baseAddress = pcb->baseAddress;
+    s.programSize = pcb->programSize;
+    s.arrivalTime = pcb->createdCycle;
+    s.cpuTime = pcb->cpuTime;
+    s.waitingTime = pcb->waitingTime;
+    if (pcb->terminatedCycle >= pcb->createdCycle) {
+        s.turnaroundTime = pcb->terminatedCycle - pcb->createdCycle;
+    }
+    if (pcb->firstRunCycle != 0) {
+        s.responseTime = pcb->firstRunCycle - pcb->createdCycle;
+    }
+    s.stateChanges = pcb->stateChangeCount;
+    s.contextSwitches = pcb->contextSwitchCount;
+    if (memoryManager_) {
+        const auto& faults = memoryManager_->getStatistics().perProcessFaults;
+        const auto it = faults.find(pid);
+        if (it != faults.end()) {
+            s.pageFaults = it->second;
+        }
+    }
+    s.ioRequests = pcb->ioRequests;
+    s.ipcOperations = pcb->ipcOperations;
+    return s;
+}
+
+std::vector<ProcessStatistics> ProcessManager::getAllProcessStatistics() const {
+    std::vector<ProcessStatistics> stats;
+    stats.reserve(pcbs_.size());
+    for (const auto& [pid, pcb] : pcbs_) {
+        (void)pcb;
+        if (auto s = getProcessStatistics(pid)) {
+            stats.push_back(*s);
+        }
+    }
+    return stats;
+}
+
+double ProcessManager::cpuUtilization() const {
+    if (!clock_) {
+        return 0.0;
+    }
+    const uint64_t total = clock_->cycle();
+    if (total == 0) {
+        return 0.0;
+    }
+    uint64_t busy = 0;
+    for (const auto& [pid, pcb] : pcbs_) {
+        (void)pid;
+        busy += pcb.cpuTime;
+        if (pcb.onCpu) {
+            // Include the still-uncharged current run in the snapshot.
+            busy += total - pcb.lastCpuCycle;
+        }
+    }
+    const double util = static_cast<double>(busy) / static_cast<double>(total);
+    return util > 1.0 ? 1.0 : util;
 }
 
 } // namespace aios

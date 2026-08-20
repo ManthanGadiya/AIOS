@@ -113,6 +113,14 @@ enum class ProcessState : int32_t {
 
 std::string processStateToString(ProcessState state);
 
+// Process kind (docs/06 section 27: the process table has a Type column).
+enum class ProcessType : int32_t {
+    NORMAL = 0,
+    AI_AGENT = 1
+};
+
+std::string processTypeToString(ProcessType type);
+
 // ---------------------------------------------------------------------------
 // CPU states (docs/04 section 14).
 // ---------------------------------------------------------------------------
@@ -218,6 +226,29 @@ struct Event {
     int pid = INVALID_PID;
     uint64_t cycle = 0;
     std::string detail;
+};
+
+// ---------------------------------------------------------------------------
+// Process statistics (docs/06 sections 28-29).
+// ---------------------------------------------------------------------------
+struct ProcessStatistics {
+    int pid = INVALID_PID;
+    std::string name;
+    ProcessState state = ProcessState::NEW;
+    ProcessType type = ProcessType::NORMAL;
+    int priority = 0;
+    uint32_t baseAddress = 0;
+    uint32_t programSize = 0;
+    uint64_t arrivalTime = 0;    // creation cycle
+    uint64_t cpuTime = 0;        // cycles on the CPU
+    uint64_t waitingTime = 0;    // cycles in the READY queue
+    uint64_t turnaroundTime = 0; // completion - arrival (0 while alive)
+    uint64_t responseTime = 0;   // first-run - arrival (0 if never run)
+    uint64_t stateChanges = 0;
+    uint64_t contextSwitches = 0;
+    uint64_t pageFaults = 0;
+    uint64_t ioRequests = 0;
+    uint64_t ipcOperations = 0;
 };
 
 // ---------------------------------------------------------------------------
