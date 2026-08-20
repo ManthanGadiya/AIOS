@@ -14,6 +14,7 @@ namespace aios {
 
 class Memory;
 class CPU;
+class MemoryManager;
 
 // ---------------------------------------------------------------------------
 // Process manager (docs/06).
@@ -30,9 +31,13 @@ public:
     void setEventLog(EventLog* log) { eventLog_ = log; }
     void setCPU(CPU* cpu) { cpu_ = cpu; }
     void setClock(SimulationClock* clock) { clock_ = clock; }
+    void setMemoryManager(MemoryManager* mm) { memoryManager_ = mm; }
 
     // Creates a PCB and loads `program` into memory at `base`.
-    // Returns the new PID, or INVALID_PID on failure (e.g. overflow).
+    // When a MemoryManager is attached, the program image goes to swap and the
+    // logical space starts at 0 (demand paging, docs/07 section 29); otherwise
+    // the Stage I flat-Memory path is used.  Returns the new PID, or
+    // INVALID_PID on failure (e.g. overflow).
     int createProcess(const std::string& name, int priority,
                       const std::vector<int32_t>& program, uint32_t base);
 
@@ -69,6 +74,7 @@ private:
     EventLog* eventLog_ = nullptr;
     CPU* cpu_ = nullptr;
     SimulationClock* clock_ = nullptr;
+    MemoryManager* memoryManager_ = nullptr;
 };
 
 } // namespace aios

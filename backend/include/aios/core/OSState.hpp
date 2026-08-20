@@ -6,6 +6,7 @@
 #include <aios/interrupt/InterruptManager.hpp>
 #include <aios/interrupt/SystemCallManager.hpp>
 #include <aios/memory/Memory.hpp>
+#include <aios/memory/MemoryManager.hpp>
 #include <aios/process/ProcessManager.hpp>
 
 #include <cstdint>
@@ -26,6 +27,7 @@ public:
     SimulationClock& clock() { return clock_; }
     EventLog& eventLog() { return eventLog_; }
     Memory& memory() { return memory_; }
+    MemoryManager& memoryManager() { return memoryManager_; }
     CPU& cpu() { return cpu_; }
     InterruptManager& interruptManager() { return interrupts_; }
     SystemCallManager& systemCallManager() { return syscalls_; }
@@ -46,6 +48,7 @@ private:
     SimulationClock clock_;
     EventLog eventLog_;
     Memory memory_;
+    MemoryManager memoryManager_;
     SystemCallManager syscalls_;
     ProcessManager processes_;
     InterruptManager interrupts_;

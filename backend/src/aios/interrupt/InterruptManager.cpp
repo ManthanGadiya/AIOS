@@ -1,6 +1,7 @@
 #include <aios/interrupt/InterruptManager.hpp>
 
 #include <aios/interrupt/SystemCallManager.hpp>
+#include <aios/memory/MemoryManager.hpp>
 #include <aios/process/ProcessManager.hpp>
 
 namespace aios {
@@ -59,6 +60,11 @@ void InterruptManager::dispatch(const InterruptRequest& req) {
     } else if (req.type == InterruptType::ERROR) {
         if (processes_ && req.pid != INVALID_PID) {
             processes_->markFailed(req.pid);
+        }
+    } else if (req.type == InterruptType::PAGE_FAULT) {
+        // Load the faulting page so the CPU can retry the instruction.
+        if (memoryManager_ && req.pid != INVALID_PID) {
+            memoryManager_->handlePageFault(req.pid, static_cast<uint32_t>(req.data));
         }
     }
     // TIMER and IO_COMPLETE are observed and logged only in Stage I

@@ -1,6 +1,7 @@
 add_library(aios_core STATIC
     aios/core/types.cpp
     aios/memory/ProgramLoader.cpp
+    aios/memory/MemoryManager.cpp
     aios/cpu/CPU.cpp
     aios/process/ProcessManager.cpp
     aios/interrupt/InterruptManager.cpp

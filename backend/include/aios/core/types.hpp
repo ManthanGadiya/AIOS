@@ -131,7 +131,8 @@ enum class InterruptType : int32_t {
     TIMER = 0,
     SYSTEM_CALL = 1,
     IO_COMPLETE = 2,
-    ERROR = 3
+    ERROR = 3,
+    PAGE_FAULT = 4
 };
 
 enum class InterruptPhase : int32_t {
@@ -198,7 +199,15 @@ enum class EventType : int32_t {
     REGISTER_UPDATE = 11,
     SYSCALL = 12,
     HALT = 13,
-    CPU_ERROR = 14
+    CPU_ERROR = 14,
+    PAGE_ALLOCATED = 15,
+    PAGE_ACCESSED = 16,
+    FRAME_ALLOCATED = 17,
+    PAGE_REPLACED = 18,
+    PAGE_LOADED = 19,
+    PAGE_SWAPPED_OUT = 20,
+    PAGE_SWAPPED_IN = 21,
+    INVALID_MEMORY_ACCESS = 22
 };
 
 std::string eventTypeToString(EventType type);
@@ -208,6 +217,61 @@ struct Event {
     int pid = INVALID_PID;
     uint64_t cycle = 0;
     std::string detail;
+};
+
+// ---------------------------------------------------------------------------
+// Paging structures (docs/07).
+// ---------------------------------------------------------------------------
+
+// One page-table entry (docs/07 section 8): maps a logical page to a frame
+// and tracks present/valid/reference/dirty state.
+struct PageTableEntry {
+    uint32_t frame = 0;
+    bool present = false;   // page is resident in RAM (docs/07 section 9)
+    bool valid = true;      // page belongs to the process's valid space (section 10)
+    bool referenced = false;
+    bool dirty = false;     // page was written since load (docs/07 section 21)
+};
+
+// A process's logical -> physical mapping (docs/07 sections 7-10, 26).
+struct PageTable {
+    int pid = INVALID_PID;
+    uint32_t pageCount = 0;
+    std::vector<PageTableEntry> entries;
+};
+
+// Result of a single logical-memory access (docs/07 section 36).
+enum class MemoryAccessStatus {
+    OK,
+    PAGE_FAULT, // valid page, not resident
+    INVALID     // invalid page / out of bounds
+};
+
+struct MemoryAccessResult {
+    MemoryAccessStatus status = MemoryAccessStatus::INVALID;
+    int32_t value = 0;          // valid when status == OK and it was a read
+    uint32_t page = 0;          // faulting page when status == PAGE_FAULT
+    uint32_t physicalAddress = 0;
+};
+
+// Frame occupancy row (docs/07 section 30).
+struct FrameEntry {
+    bool occupied = false;
+    int pid = INVALID_PID;
+    uint32_t page = 0;
+};
+
+// Collected memory statistics (docs/07 sections 34-35).
+struct MemoryStatistics {
+    uint32_t pageSize = 0;
+    uint32_t totalFrames = 0;
+    uint32_t usedFrames = 0;
+    uint32_t totalWords = 0;
+    uint32_t usedWords = 0;
+    uint64_t pageFaultCount = 0;
+    uint64_t pageReplacementCount = 0;
+    uint64_t swapWords = 0; // words currently held in simulated swap
+    std::map<int, uint64_t> perProcessFaults;
 };
 
 } // namespace aios

@@ -139,6 +139,7 @@ std::string interruptTypeToString(InterruptType type) {
         case InterruptType::SYSTEM_CALL:  return "SYSTEM_CALL";
         case InterruptType::IO_COMPLETE:  return "IO_COMPLETE";
         case InterruptType::ERROR:        return "ERROR";
+        case InterruptType::PAGE_FAULT:   return "PAGE_FAULT";
     }
     return "UNKNOWN";
 }
@@ -160,6 +161,14 @@ std::string eventTypeToString(EventType type) {
         case EventType::SYSCALL:             return "SYSCALL";
         case EventType::HALT:                return "HALT";
         case EventType::CPU_ERROR:           return "CPU_ERROR";
+        case EventType::PAGE_ALLOCATED:      return "PAGE_ALLOCATED";
+        case EventType::PAGE_ACCESSED:       return "PAGE_ACCESSED";
+        case EventType::FRAME_ALLOCATED:     return "FRAME_ALLOCATED";
+        case EventType::PAGE_REPLACED:       return "PAGE_REPLACED";
+        case EventType::PAGE_LOADED:         return "PAGE_LOADED";
+        case EventType::PAGE_SWAPPED_OUT:    return "PAGE_SWAPPED_OUT";
+        case EventType::PAGE_SWAPPED_IN:     return "PAGE_SWAPPED_IN";
+        case EventType::INVALID_MEMORY_ACCESS: return "INVALID_MEMORY_ACCESS";
     }
     return "UNKNOWN";
 }

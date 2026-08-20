@@ -10,6 +10,7 @@ namespace aios {
 
 class SystemCallManager;
 class ProcessManager;
+class MemoryManager;
 
 // ---------------------------------------------------------------------------
 // Interrupt manager (docs/05).
@@ -24,6 +25,7 @@ public:
     void setEventLog(EventLog* log) { eventLog_ = log; }
     void setSystemCallManager(SystemCallManager* m) { syscalls_ = m; }
     void setProcessManager(ProcessManager* m) { processes_ = m; }
+    void setMemoryManager(MemoryManager* m) { memoryManager_ = m; }
 
     // Adds an interrupt to the pending queue; returns its id.
     int generateInterrupt(InterruptType type, int pid, int32_t data);
@@ -51,6 +53,7 @@ private:
     EventLog* eventLog_ = nullptr;
     SystemCallManager* syscalls_ = nullptr;
     ProcessManager* processes_ = nullptr;
+    MemoryManager* memoryManager_ = nullptr;
 };
 
 } // namespace aios

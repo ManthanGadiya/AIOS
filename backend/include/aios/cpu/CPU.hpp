@@ -10,6 +10,7 @@
 namespace aios {
 
 class Memory;
+class MemoryManager;
 class InterruptManager;
 
 // ---------------------------------------------------------------------------
@@ -48,6 +49,7 @@ public:
 
     // Dependency injection (wired by OSState).
     void setMemory(Memory* memory) { memory_ = memory; }
+    void setMemoryManager(MemoryManager* memoryManager) { memoryManager_ = memoryManager; }
     void setEventLog(EventLog* log) { eventLog_ = log; }
     void setClock(SimulationClock* clock) { clock_ = clock; }
     void setInterruptManager(InterruptManager* im) { interruptManager_ = im; }
@@ -59,6 +61,12 @@ private:
     void execute();
     void updateArithmeticFlags(int32_t result, int64_t exact, bool isAddOrSub);
     void raiseError(const std::string& detail);
+    bool isJumpTargetValid(int32_t target) const;
+    // On a page fault during execute the PC has already advanced past the
+    // faulting instruction, so it is rolled back to MAR for the retry
+    // (docs/07 section 16: "Retry Instruction").  [decision D8]
+    void raisePageFault(uint32_t page, bool rollbackPc);
+    void raiseInvalidAccess(uint32_t logicalAddress);
     void record(EventType type, const std::string& detail);
 
     CpuState state_ = CpuState::IDLE;
@@ -66,6 +74,7 @@ private:
     int currentPid_ = INVALID_PID;
 
     Memory* memory_ = nullptr;
+    MemoryManager* memoryManager_ = nullptr;
     EventLog* eventLog_ = nullptr;
     SimulationClock* clock_ = nullptr;
     InterruptManager* interruptManager_ = nullptr;

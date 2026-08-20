@@ -2,6 +2,7 @@
 
 #include <aios/cpu/CPU.hpp>
 #include <aios/memory/Memory.hpp>
+#include <aios/memory/MemoryManager.hpp>
 
 #include <utility>
 
@@ -9,10 +10,18 @@ namespace aios {
 
 int ProcessManager::createProcess(const std::string& name, int priority,
                                   const std::vector<int32_t>& program, uint32_t base) {
-    if (!memory_ || !memory_->loadProgram(program, base)) {
+    if (!memory_ || program.empty()) {
         return INVALID_PID;
     }
     const int pid = nextPid_++;
+    if (memoryManager_) {
+        // Paged path: image goes to swap; logical space starts at 0.
+        if (!memoryManager_->allocateProcessMemory(pid, program)) {
+            return INVALID_PID;
+        }
+    } else if (!memory_->loadProgram(program, base)) {
+        return INVALID_PID;
+    }
     const uint64_t cycle = clock_ ? clock_->cycle() : 0;
 
     ProcessControlBlock pcb;
@@ -20,9 +29,9 @@ int ProcessManager::createProcess(const std::string& name, int priority,
     pcb.name = name;
     pcb.priority = priority;
     pcb.state = ProcessState::NEW;
-    pcb.baseAddress = base;
+    pcb.baseAddress = memoryManager_ ? 0 : base;
     pcb.programSize = static_cast<uint32_t>(program.size());
-    pcb.context.pc = static_cast<int32_t>(base);
+    pcb.context.pc = memoryManager_ ? 0 : static_cast<int32_t>(base);
     pcb.createdCycle = cycle;
     pcbs_.emplace(pid, std::move(pcb));
 
@@ -69,6 +78,9 @@ bool ProcessManager::terminate(int pid) {
         return false;
     }
     releaseCpuIfRunning(pid);
+    if (memoryManager_) {
+        memoryManager_->releaseProcessMemory(pid);
+    }
     if (eventLog_) {
         eventLog_->record(EventType::PROCESS_TERMINATED, pid,
                           clock_ ? clock_->cycle() : 0, pcb->name);
@@ -93,6 +105,9 @@ bool ProcessManager::markFailed(int pid) {
         return false;
     }
     releaseCpuIfRunning(pid);
+    if (memoryManager_) {
+        memoryManager_->releaseProcessMemory(pid);
+    }
     return true;
 }
 
@@ -127,6 +142,12 @@ std::vector<int> ProcessManager::processIds() const {
 }
 
 void ProcessManager::reset() {
+    if (memoryManager_) {
+        for (const auto& [pid, pcb] : pcbs_) {
+            (void)pcb;
+            memoryManager_->releaseProcessMemory(pid);
+        }
+    }
     pcbs_.clear();
     nextPid_ = 1;
 }

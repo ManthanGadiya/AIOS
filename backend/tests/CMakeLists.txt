@@ -10,6 +10,7 @@ add_executable(aios_tests
     test_process.cpp
     test_interrupt.cpp
     test_syscall.cpp
+    test_paging.cpp
 )
 
 target_include_directories(aios_tests PRIVATE
