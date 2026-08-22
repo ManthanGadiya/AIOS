@@ -1,6 +1,5 @@
 // EventLog Component - Chronological event stream per docs/13_GUI_Architecture.md sections 40-42
 import { useState, useMemo } from 'react';
-import { Filter, ChevronDown } from 'lucide-react';
 import type { EventLogEntry } from '../../types/os';
 
 const CATEGORIES = [
@@ -40,43 +39,36 @@ export function EventLog({ events, maxEvents = 100 }: EventLogProps) {
   }, [events, filter, search, maxEvents]);
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg flex flex-col h-full">
-      <div className="px-4 py-3 border-b border-gray-700 bg-gray-900 rounded-t-lg flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h3 className="font-medium text-gray-100 flex items-center gap-2">
-            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            </svg>
-            Event Log
-          </h3>
-          <span className="text-xs text-gray-400 font-mono">{filteredEvents.length} events</span>
-        </div>
-        
-        <div className="flex flex-wrap gap-2">
-          <div className="relative flex-1 min-w-[200px]">
-            <Filter className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-            <input
-              type="text"
-              placeholder="Search events..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-1.5 bg-gray-800 border border-gray-600 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-          </div>
-          
-          <div className="relative">
+    <div className="bg-gray-800 border border-gray-700 rounded-lg flex flex-col h-full min-h-0 overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-gray-700 bg-gray-900 flex items-center justify-between gap-2">
+        <h3 className="font-medium text-gray-100 text-sm">Event Log</h3>
+        <span className="text-xs text-gray-400 font-mono">{filteredEvents.length}</span>
+      </div>
+      
+      <div className="px-3 py-2 border-b border-gray-700 space-y-2">
+        <input
+          type="text"
+          placeholder="Filter events..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-full px-2.5 py-1 bg-gray-800 border border-gray-600 rounded text-white text-xs placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+        />
+        <div className="flex flex-wrap gap-1">
+          {CATEGORIES.map(cat => (
             <button
-              onClick={() => setFilter(filter === 'ALL' ? 'PROCESS' : 'ALL')} // Simplified for now
-              className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-white text-sm flex items-center gap-1.5 hover:border-gray-500 transition-colors"
+              key={cat}
+              onClick={() => setFilter(cat)}
+              className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                filter === cat ? 'bg-green-900/40 text-green-300' : 'text-gray-400 hover:bg-gray-700'
+              }`}
             >
-              <span className="capitalize">{filter === 'ALL' ? 'All' : filter}</span>
-              <ChevronDown className="w-4 h-4" />
+              {cat === 'ALL' ? 'All' : cat}
             </button>
-          </div>
+          ))}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 space-y-1">
+      <div className="flex-1 overflow-y-auto p-2 space-y-1 min-h-0">
         {filteredEvents.length === 0 ? (
           <div className="text-center text-gray-500 py-8">No events matching filter</div>
         ) : (

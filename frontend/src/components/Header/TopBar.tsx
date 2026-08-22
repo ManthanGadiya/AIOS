@@ -10,6 +10,7 @@ interface TopBarProps {
   clockSpeed: number;
   onClockSpeedChange: (speed: number) => void;
   isRunning: boolean;
+  connected?: boolean;
   cycle?: number;
 }
 
@@ -29,6 +30,7 @@ export function TopBar({
   clockSpeed, 
   onClockSpeedChange,
   isRunning,
+  connected = false,
   cycle = 0,
 }: TopBarProps) {
   const [policyOpen, setPolicyOpen] = useState(false);
@@ -37,6 +39,15 @@ export function TopBar({
     <header className="bg-gray-900 border-b border-gray-700 px-4 py-3 flex items-center justify-between">
       <div className="flex items-center gap-4">
         <h1 className="text-xl font-mono font-bold text-gray-100">AIOS SIMULATOR</h1>
+        <span
+          className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium ${
+            connected ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'
+          }`}
+          title={connected ? 'OS Engine reachable' : 'OS Engine unreachable - start aios_server.exe'}
+        >
+          <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
+          {connected ? 'Engine: Connected' : 'Engine: Disconnected'}
+        </span>
         <div className="flex items-center gap-2">
           <button
             onClick={() => onCommand({ command: 'START_SIMULATION' })}

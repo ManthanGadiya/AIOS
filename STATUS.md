@@ -356,6 +356,17 @@ Meaningful commit created
 
 # 13. Latest Meaningful Change
 
+**2026-08-22 (Mid-review GUI fixes)**
+
+Dashboard reliability pass after first end-to-end testing.
+
+* Build layout consolidated: canonical build directory is backend/build (README Quick Start); stray repository-root build removed
+* Port-conflict guard: server probes /health before binding and refuses to start with exit code 1 when another instance already answers - previously a second silent process could squat while the dashboard talked to the stale one (docs/13 section 65)
+* Real dashboard statistics: cpuUsage now from ProcessManager::cpuUtilization(), memoryUsage from MemoryManager usedWords/totalWords, pageFaults from Memory Manager counters, scheduler metrics (avg waiting/turnaround/response, throughput) from getAllProcessStatistics() - all were hardcoded zeros before
+* Connection honesty in the UI: Engine Connected/Disconnected badge in the Top Bar, disconnection banner with last-known-state notice, Start/Pause buttons only reflect commands the engine actually accepted
+* One-screen layout: every panel has a bounded height and internal scrollbar (process table, CPU, frames, page tables, ready queue, interrupts, event log with working category filters); redundant AI-agent card folded into the process table Type column
+* Verified live: CPU 98% utilization under Round Robin, page faults incrementing, frame ownership visible, duplicate instance rejected
+
 **2026-08-22 (Mid-Review GUI: REST server + React dashboard)**
 
 Mid-review dashboard complete: the OS engine is now observable and controllable through a web UI.

@@ -46,6 +46,9 @@ public:
     void start();
     void stop();
 
+    // False after start() when the port could not be bound (already in use).
+    bool ok() const { return boundOk_; }
+
 private:
     void setupRoutes();
     void setupWebSocket();
@@ -62,6 +65,7 @@ private:
     httplib::Server server_;
     int port_;
     bool running_ = false;
+    bool boundOk_ = false;
     std::thread serverThread_;
 
     // OS Engine components

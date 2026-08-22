@@ -14,35 +14,39 @@ function App() {
   const [currentPolicy, setCurrentPolicy] = useState<SchedulingPolicy>('FCFS');
   const [clockSpeed, setClockSpeed] = useState(1);
   const [isRunning, setIsRunning] = useState(false);
+  const [connected, setConnected] = useState(false);
   const [cycle, setCycle] = useState(0);
   const sidebarOpen = true;
 
-  // Poll the simulation clock so the TopBar cycle indicator stays live.
+  // Poll the simulation clock so the TopBar cycle indicator stays live and
+  // the UI can show honestly when the OS engine is unreachable (docs/13
+  // section 65: never pretend the simulation is still receiving updates).
   useEffect(() => {
     let cancelled = false;
     const tick = async () => {
       try {
         const res = await api.getStatistics();
-        if (!cancelled && res.success && res.data) {
-          setCycle(res.data.cycle ?? 0);
+        if (!cancelled) {
+          setConnected(res.success);
+          if (res.success && res.data) setCycle(res.data.cycle ?? 0);
         }
       } catch {
-        // Backend offline; keep last known value.
+        if (!cancelled) setConnected(false);
       }
     };
+    tick();
     const id = setInterval(tick, 1000);
     return () => { cancelled = true; clearInterval(id); };
   }, []);
 
   const handleCommand = async (cmd: SimulationControl) => {
-    try {
-      await api.sendCommand(cmd);
-      if (cmd.command === 'START_SIMULATION') setIsRunning(true);
-      else if (cmd.command === 'STOP_SIMULATION') setIsRunning(false);
-      else if (cmd.command === 'RESET_SIMULATION') setIsRunning(false);
-    } catch (error) {
-      console.error('Command failed:', error);
-    }
+    const res = await api.sendCommand(cmd);
+    // Only reflect state changes the engine actually accepted.
+    if (!res.success) return;
+    if (cmd.command === 'START_SIMULATION') setIsRunning(true);
+    else if (cmd.command === 'PAUSE_SIMULATION') setIsRunning(false);
+    else if (cmd.command === 'STOP_SIMULATION') setIsRunning(false);
+    else if (cmd.command === 'RESET_SIMULATION') setIsRunning(false);
   };
 
   const handlePolicyChange = async (policy: SchedulingPolicy) => {
@@ -70,7 +74,8 @@ function App() {
         onPolicyChange={handlePolicyChange}
         clockSpeed={clockSpeed}
         onClockSpeedChange={handleClockSpeedChange}
-        isRunning={isRunning}
+        isRunning={isRunning && connected}
+        connected={connected}
         cycle={cycle}
       />
 
@@ -89,7 +94,7 @@ function App() {
         {/* Main Content */}
         <main className={`flex-1 overflow-auto transition-all duration-200 ${sidebarOpen ? 'ml-0' : 'ml-0'}`}>
           <div className="p-4 lg:p-6">
-            {activePage === 'dashboard' && <Dashboard />}
+            {activePage === 'dashboard' && <Dashboard connected={connected} />}
             {activePage !== 'dashboard' && (
               <div className="bg-gray-800 border border-gray-700 rounded-lg p-8 text-center">
                 <h2 className="text-xl font-medium text-gray-100 mb-2 capitalize">{activePage}</h2>

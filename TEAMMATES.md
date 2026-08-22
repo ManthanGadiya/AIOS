@@ -160,6 +160,14 @@ Next Recommended Step:
 
 ## 2026-08-22
 
+* Mid-review GUI fix pass after first live testing (build layout, port guard, real stats, UI fit).
+* Canonical build directory is backend/build; stray repository-root build removed. Quick Start unchanged.
+* Server now probes the port before binding and exits with code 1 when an instance already runs there - fixes "frontend showed stale data after I stopped the backend" (stale instance was still serving).
+* Dashboard statistics are real: CPU utilization from ProcessManager::cpuUtilization(), memory usage from MemoryManager counters, page faults counted, scheduler metrics averaged from process statistics.
+* UI shows Engine Connected/Disconnected honestly, with a banner when the engine is unreachable; controls only reflect accepted commands.
+* All dashboard panels have fixed heights with internal scrollbars so the full system view fits on screen (docs/13 sections 59-60); event log category filters now functional.
+* Full suite still 131 test cases / 717 assertions passing.
+
 * Mid-review GUI complete: REST server + React dashboard (roadmap section 9 "Mid Review GUI" scope).
 * C++ REST API server (aios/server, cpp-httplib + nlohmann/json in third_party): /api/statistics, /api/processes, /api/agents, /api/cpu, /api/memory, /api/scheduler, /api/interrupts, /api/events, POST /api/command.
 * START/PAUSE/STOP gate a 10 cycles/s host simulation loop; RESET restores the initial workload; CHANGE_SCHEDULER maps onto SchedulingPolicy.

@@ -33,16 +33,19 @@ export function ProcessTable({ processes, runningPid }: ProcessTableProps) {
   if (processes.length === 0) {
     return (
       <div className="bg-gray-800 border border-gray-700 rounded-lg p-8 text-center text-gray-500">
-        No processes running
+        No processes yet — press Start
       </div>
     );
   }
 
   return (
     <div className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
-      <div className="overflow-x-auto">
+      <div className="px-4 py-2.5 bg-gray-900 border-b border-gray-700">
+        <h3 className="font-medium text-gray-100 text-sm">Process List</h3>
+      </div>
+      <div className="overflow-y-auto max-h-[220px]">
         <table className="w-full text-sm">
-          <thead className="bg-gray-900 border-b border-gray-700">
+          <thead className="bg-gray-900 border-b border-gray-700 sticky top-0">
             <tr>
               <th className="px-3 py-2 text-left font-medium text-gray-400">PID</th>
               <th className="px-3 py-2 text-left font-medium text-gray-400">Type</th>

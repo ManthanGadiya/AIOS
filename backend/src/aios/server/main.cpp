@@ -146,9 +146,33 @@ int main(int argc, char* argv[]) {
 
     createDemoWorkload(*processManager);
 
-    apiServer.start();
+    // Refuse to start when something already answers on this port. Windows
+    // socket semantics make bind() alone unreliable for detecting this, which
+    // previously left a second silent process while the dashboard talked to
+    // the old one (docs/13 section 65: never pretend to be live).
+    {
+        httplib::Client probe("127.0.0.1", port);
+        probe.set_connection_timeout(1, 0);
+        if (auto res = probe.Get("/health")) {
+            std::cerr << "Port " << port << " already has a running AIOS server."
+                      << std::endl
+                      << "Stop it first or start on another port:"
+                      << std::endl
+                      << "  aios_server.exe <port>" << std::endl;
+            return 1;
+        }
+    }
 
-    std::cout << "Server running. Press Ctrl+C to stop." << std::endl;
+    apiServer.start();
+    if (!apiServer.ok()) {
+        std::cerr << "Failed to bind port " << port
+                  << ". Stop the other AIOS server instance or pick another port:"
+                  << std::endl
+                  << "  aios_server.exe <port>" << std::endl;
+        return 1;
+    }
+
+    std::cout << "Server running on port " << port << ". Press Ctrl+C to stop." << std::endl;
     std::cout << "Endpoints:" << std::endl;
     std::cout << "  GET  /health" << std::endl;
     std::cout << "  GET  /api/statistics" << std::endl;

@@ -17,25 +17,20 @@ export function ReadyQueue({ readyQueue, processes, runningPid }: ReadyQueueProp
 
   if (queueItems.length === 0) {
     return (
-      <div className="bg-gray-800 border border-gray-700 rounded-lg p-8 text-center text-gray-500">
+      <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 text-center text-gray-500 text-sm h-full">
         Ready queue empty
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg">
-      <div className="px-4 py-3 border-b border-gray-700 bg-gray-900 rounded-t-lg">
-        <h3 className="font-medium text-gray-100 flex items-center gap-2">
-          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-          Ready Queue
-        </h3>
+    <div className="bg-gray-800 border border-gray-700 rounded-lg flex flex-col h-full overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-gray-700 bg-gray-900">
+        <h3 className="font-medium text-gray-100 text-sm">Ready Queue</h3>
       </div>
       
-      <div className="p-4">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="p-4 flex flex-col flex-1 min-h-0">
+        <div className="flex flex-wrap items-center gap-2 content-start overflow-y-auto flex-1 min-h-0">
           {queueItems.map((item, index) => {
             const proc = processMap.get(item.pid);
             return (

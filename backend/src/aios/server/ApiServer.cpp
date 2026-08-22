@@ -27,15 +27,21 @@ void ApiServer::start() {
     std::cout << "[ApiServer] Setting up routes..." << std::endl;
     setupRoutes();
     std::cout << "[ApiServer] Routes set up, starting server..." << std::endl;
-    setupWebSocket();
+    
+    // Bind synchronously so a port conflict fails loudly here instead of
+    // silently leaving a process that serves nothing (docs/13 section 65).
+    if (!server_.bind_to_port("0.0.0.0", port_)) {
+        std::cerr << "[ApiServer] ERROR: cannot bind port " << port_
+                  << " - another instance is probably already running." << std::endl;
+        running_ = false;
+        boundOk_ = false;
+        return;
+    }
+    boundOk_ = true;
     
     serverThread_ = std::thread([this]() {
-        std::cout << "[ApiServer] Starting on port " << port_ << std::endl;
-        server_.listen("0.0.0.0", port_);
+        server_.listen_after_bind();
     });
-    
-    // Give server time to start
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 void ApiServer::stop() {
@@ -199,14 +205,35 @@ json ApiServer::schedulerToJson() const {
         j["schedulingHistory"].push_back(std::move(histEntry));
     }
     
-    // Metrics
+    // Metrics (docs/08 section 25), averaged over all processes from the
+    // Process Manager statistics; throughput = completed / elapsed cycles.
     j["metrics"] = json::object();
-    j["metrics"]["avgWaitingTime"] = 0.0;
-    j["metrics"]["avgTurnaroundTime"] = 0.0;
-    j["metrics"]["avgResponseTime"] = 0.0;
-    j["metrics"]["cpuUtilization"] = 0.0;
+    double avgWait = 0.0, avgTurnaround = 0.0, avgResponse = 0.0;
+    int completed = 0;
+    if (pm_) {
+        const auto stats = pm_->getAllProcessStatistics();
+        if (!stats.empty()) {
+            for (const auto& s : stats) {
+                avgWait += static_cast<double>(s.waitingTime);
+                avgTurnaround += static_cast<double>(s.turnaroundTime);
+                avgResponse += static_cast<double>(s.responseTime);
+                if (s.state != ProcessState::TERMINATED && s.state != ProcessState::FAILED) {
+                    ++completed;
+                }
+            }
+            avgWait /= static_cast<double>(stats.size());
+            avgTurnaround /= static_cast<double>(stats.size());
+            avgResponse /= static_cast<double>(stats.size());
+        }
+    }
+    j["metrics"]["avgWaitingTime"] = avgWait;
+    j["metrics"]["avgTurnaroundTime"] = avgTurnaround;
+    j["metrics"]["avgResponseTime"] = avgResponse;
+    j["metrics"]["cpuUtilization"] = pm_ ? pm_->cpuUtilization() : 0.0;
     j["metrics"]["contextSwitchCount"] = sched_->contextSwitchCount();
-    j["metrics"]["throughput"] = 0.0;
+    const uint64_t cycles = clock_ ? clock_->cycle() : 0;
+    j["metrics"]["throughput"] =
+        cycles > 0 ? static_cast<double>(completed) / static_cast<double>(cycles) : 0.0;
     
     return j;
 }
@@ -217,18 +244,12 @@ json ApiServer::statisticsToJson() const {
     
     int totalProcesses = 0;
     int aiAgents = 0;
-    uint64_t totalCpuTime = 0;
-    uint64_t totalContextSwitches = 0;
-    int totalPageFaults = 0;
     
     for (int pid = 0; pid < 256; ++pid) {
         auto* pcb = pm_->getProcess(pid);
         if (pcb) {
             ++totalProcesses;
             if (pcb->type == ProcessType::AI_AGENT) ++aiAgents;
-            totalCpuTime += pcb->cpuTime;
-            totalContextSwitches += pcb->contextSwitchCount;
-            // totalPageFaults not directly tracked in PCB
         }
     }
     
@@ -249,9 +270,26 @@ json ApiServer::statisticsToJson() const {
     
     j["totalProcesses"] = totalProcesses;
     j["aiAgents"] = aiAgents;
-    j["cpuUsage"] = 0; // Would need CPU busy cycles / total cycles
-    j["memoryUsage"] = 0; // Would need used frames / total frames
-    j["pageFaults"] = totalPageFaults;
+
+    // CPU utilization from Process Manager accounting (docs/06 section 29):
+    // busy CPU cycles / elapsed cycles.
+    const double util = pm_->cpuUtilization();
+    j["cpuUsage"] = static_cast<int>(util * 100.0 + 0.5);
+
+    // Memory usage and page-fault totals from the Memory Manager counters
+    // (docs/07 sections 34-35); zero when running on the flat-memory path.
+    uint64_t faults = 0;
+    int memPercent = 0;
+    if (mm_) {
+        const auto ms = mm_->getStatistics();
+        if (ms.totalWords > 0) {
+            memPercent = static_cast<int>(
+                (static_cast<double>(ms.usedWords) / ms.totalWords) * 100.0 + 0.5);
+        }
+        faults = ms.pageFaultCount;
+    }
+    j["memoryUsage"] = memPercent;
+    j["pageFaults"] = faults;
     j["interrupts"] = interruptCount;
     j["cycle"] = clock_ ? clock_->cycle() : 0;
     
