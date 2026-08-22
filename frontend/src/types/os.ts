@@ -107,6 +107,9 @@ export interface SchedulerState {
   readyQueue: number[]; // PIDs in order
   timeQuantum: number;
   schedulingScore?: number;
+  currentTimeCycle?: number;
+  contextSwitchCount?: number;
+  decisionCount?: number;
   schedulingHistory: SchedulingDecision[];
   metrics: SchedulerMetrics;
 }

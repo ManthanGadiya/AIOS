@@ -161,6 +161,8 @@ Next Recommended Step:
 ## 2026-08-22
 
 * Mid-review GUI fix pass after first live testing (build layout, port guard, real stats, UI fit).
+* Second UI polish pass from live review feedback: CPU panel compressed to a one-row register strip with inline flags; physical memory as a 16x4 chip grid with usage counter; page table now toggles between processes with prev/next buttons instead of stacking all tables.
+* New Scheduler panel (docs/13 sections 27, 29): policy/on-CPU/switch summary plus a Gantt-style CPU timeline rendered from real schedulingHistory segments and recent decision reasons - gives FCFS and Priority visible progress between their (intentionally rare) context switches; replaces the empty IPC placeholder slot until Week 6.
 * Canonical build directory is backend/build; stray repository-root build removed. Quick Start unchanged.
 * Server now probes the port before binding and exits with code 1 when an instance already runs there - fixes "frontend showed stale data after I stopped the backend" (stale instance was still serving).
 * Dashboard statistics are real: CPU utilization from ProcessManager::cpuUtilization(), memory usage from MemoryManager counters, page faults counted, scheduler metrics averaged from process statistics.
