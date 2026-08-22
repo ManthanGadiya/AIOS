@@ -11,3 +11,12 @@ endif()
 
 add_subdirectory(src)
 add_subdirectory(tests)
+
+# Server executable
+add_executable(aios_server
+    src/aios/server/main.cpp
+)
+target_link_libraries(aios_server PRIVATE aios_core)
+if(WIN32)
+    target_link_libraries(aios_server PRIVATE ws2_32)
+endif()

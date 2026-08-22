@@ -80,11 +80,16 @@ public:
     size_t decisionCount() const { return history_.size(); }
     uint64_t contextSwitchCount() const { return contextSwitchCount_; }
     const std::vector<SchedulingDecision>& history() const { return history_; }
+    
+    // Returns the PID of the currently running process, or INVALID_PID if none
+    int currentRunning() const;
+    
+    // Returns a copy of the internal ready order (FCFS/RR) or READY set (Priority)
+    std::vector<int> readyQueue() const;
 
     void reset();
 
 private:
-    int currentRunning() const;
     void reconcile();   // sync the persistent ready order with the PM READY set
     int pickReady();    // front of the reconciled order (FCFS / Round Robin)
     int pickHighestPriority() const; // best READY process (PRIORITY)

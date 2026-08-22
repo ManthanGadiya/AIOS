@@ -32,6 +32,10 @@ int Scheduler::currentRunning() const {
     return processes_ ? processes_->runningPid() : INVALID_PID;
 }
 
+std::vector<int> Scheduler::readyQueue() const {
+    return std::vector<int>(readyOrder_.begin(), readyOrder_.end());
+}
+
 void Scheduler::reconcile() {
     // Drop pids that are no longer READY (dispatched, blocked, terminated).
     std::deque<int> kept;

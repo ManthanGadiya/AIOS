@@ -8,8 +8,10 @@ add_library(aios_core STATIC
     aios/interrupt/InterruptManager.cpp
     aios/interrupt/SystemCallManager.cpp
     aios/interrupt/Timer.cpp
+    aios/server/ApiServer.cpp
 )
 
 target_include_directories(aios_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../third_party
 )

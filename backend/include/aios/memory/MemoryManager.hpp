@@ -38,6 +38,9 @@ public:
     // Sets page size and frame count. Must be called before use.
     // Defaults (4 words, 8 frames) match docs/07 section 5.
     void initialize(uint32_t pageSize, uint32_t frameCount);
+    
+    uint32_t getPageSize() const { return pageSize_; }
+    uint32_t getFrameCount() const { return frameCount_; }
 
     // Creates a page table for `pid` and stores the program image in swap.
     // Pages are valid but not present (demand paging). Returns false if the
