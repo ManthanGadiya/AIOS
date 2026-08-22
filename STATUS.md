@@ -356,6 +356,18 @@ Meaningful commit created
 
 # 13. Latest Meaningful Change
 
+**2026-08-22 (Mid-Review GUI: REST server + React dashboard)**
+
+Mid-review dashboard complete: the OS engine is now observable and controllable through a web UI.
+
+* C++ REST API server (`aios/server/ApiServer`, cpp-httplib + nlohmann/json) exposing the engine: /health, /api/statistics, /api/processes, /api/agents, /api/cpu, /api/memory, /api/scheduler, /api/interrupts, /api/events, POST /api/command
+* Simulation control wired end-to-end: START/PAUSE/STOP gate a 10 cycles/s host loop; RESET restores the initial workload; CHANGE_SCHEDULER maps to SchedulingPolicy
+* Standard demo workload per PRD section 20: P1 TextEditor, P2 Compiler, P3 MusicPlayer + A1 Research Agent, A2 Coding Agent (createAgentProcess), 200/150-instruction programs so scheduling is visibly live (~20 s per process)
+* Default policy Round Robin with quantum 4 — dashboard shows live context switches; CPU interrupt-manager wiring fixed so demand-paging page faults service and retry instead of failing processes; HALT reaps TERMINATED, CPU-error halts reap FAILED (docs/06)
+* Scheduler/MemoryManager public read accessors added for the API layer (currentRunning, readyQueue, pageSize/frameCount); full suite still 131 test cases / 717 assertions passing
+* React 19 + TypeScript + Tailwind v4 dashboard (Vite): TopBar controls + live cycle indicator, Sidebar navigation, stat cards, process table with state badges, CPU register panel, physical frame grid, page tables, ready queue, filterable event log, interrupt panel — all values fetched from the REST API (docs/13 sections 7-30, 59)
+* Verified end-to-end on port 8081: cycle advancing, RR preemption cycling all five workloads, page fault -> frame load -> instruction retry visible in the event log
+
 **2026-08-20 (M5-Scheduler)**
 
 Scheduler complete: FCFS, Round Robin and Priority policies.
@@ -433,7 +445,7 @@ Governance documents populated and documentation references corrected.
 # 14. Latest Commit
 
 ```text
-90c1df4 feat(sched): add FCFS, round robin and priority scheduling (M5)
+868bd48 feat(gui): add React dashboard for the mid review
 ```
 
 ---
@@ -446,14 +458,17 @@ The README should contain only a concise version of this state:
 AIOS is currently in the Core OS Implementation phase.
 
 M1 (Foundation), M2 (Stage I: CPU/System Calls), M3 (Paging/Virtual Memory),
-M4 (Full Interrupt Manager), M5 (Process Manager Full Features) and
-M5-Scheduler (FCFS / Round Robin / Priority) are complete:
+M4 (Full Interrupt Manager), M5 (Process Manager Full Features),
+M5-Scheduler (FCFS / Round Robin / Priority) and the Mid-Review GUI
+(REST server + React dashboard) are complete:
 - CPU Simulator with registers, fetch-decode-execute, full instruction set
 - Memory (flat RAM) + Memory Manager (page tables, frames, swap, FIFO replacement)
 - Process Manager (PCB, states, queues, context switch, resource tracking, statistics)
 - Interrupt Manager (priority queue, timer, nested policy, PAGE_FAULT dispatch) + System Call Manager
 - Scheduler (FCFS, Round Robin with quantum preemption, preemptive Priority, decision history)
-- Event Log, Simulation Clock, Program Loader, Timer
+- REST API server exposing the engine + simulation control (START/PAUSE/STOP/RESET)
+- React dashboard: stat cards, process table, CPU panel, frame grid, page tables,
+  ready queue, event log, interrupt panel — live data on port 8081/5173
 - All unit tests passing (131 test cases), CMake + MinGW build verified
 
 The architecture, OS subsystems, AI-agent layer, GUI direction,

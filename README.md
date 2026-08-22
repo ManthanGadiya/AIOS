@@ -582,7 +582,7 @@ Keep this section concise.
 Detailed history belongs in STATUS.md.
 -->
 
-**Phase:** 🟢 Core OS Implementation — M1/M2/M3 + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority) Complete
+**Phase:** 🟢 Core OS Implementation — M1/M2/M3 + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority) + Mid-Review GUI (REST Server + React Dashboard) Complete
 
 **Current State:**
 
@@ -599,7 +599,7 @@ Detailed history belongs in STATUS.md.
 * Team/status tracking established.
 * Canonical repository structure established.
 * **GitHub repository confirmed: https://github.com/ManthanGadiya/AIOS.git**
-* **M1 (Foundation) + M2 (Stage I: CPU/System Calls) + M3 (Paging/Virtual Memory) + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority) implemented and tested**
+* **M1 (Foundation) + M2 (Stage I: CPU/System Calls) + M3 (Paging/Virtual Memory) + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority) + Mid-Review GUI implemented and tested**
 
 **Implemented (M1+M2):**
 
@@ -640,6 +640,13 @@ Detailed history belongs in STATUS.md.
 * **Scheduler events** — PROCESS_SELECTED / PROCESS_PREEMPTED / TIME_QUANTUM_EXPIRED (docs/08 section 40); decision history (cycle, policy, selected/preempted pid, reason), context-switch count, reset()
 * **Timer integration** — TIMER interrupt drives Round Robin preemption through `InterruptManager::setScheduler()` (docs/08 section 24)
 
+**Implemented (Mid-Review GUI):**
+
+* **REST API server** — C++ `aios/server` (cpp-httplib + nlohmann/json) exposing the engine: statistics, processes, agents, CPU, memory, scheduler, interrupts, event log, and a command endpoint (START / PAUSE / STOP / RESET / CHANGE_SCHEDULER)
+* **Simulation control** — host loop ticks one simulated cycle per 100 ms while started; pause/stop freeze without losing state; reset restores the initial workload
+* **Demo workload** (PRD section 20) — P1 TextEditor, P2 Compiler, P3 MusicPlayer + A1 Research Agent, A2 Coding Agent as ordinary OS processes; Round Robin quantum 4 by default so context switches are visibly live
+* **React dashboard** — React 19 + TypeScript + Tailwind CSS v4 (Vite): control bar with live cycle indicator, sidebar navigation, stat cards, process table with state badges, CPU register panel, physical frame grid, page tables, ready queue, filterable event log, interrupt panel — every value fetched from the REST API
+
 **Currently Working On:**
 
 1. Synchronization (Week 6)
@@ -655,9 +662,16 @@ git clone https://github.com/ManthanGadiya/AIOS.git
 cd AIOS/backend
 cmake -G "MinGW Makefiles" -DCMAKE_CXX_COMPILER="C:/Users/Admin/scoop/apps/mingw/current/bin/g++.exe" -B build .
 cmake --build build --config Debug
-# Add the MinGW runtime to PATH so the test binary finds its DLLs:
+# Add the MinGW runtime to PATH so the binaries find their DLLs:
 export PATH="/c/Users/Admin/scoop/apps/mingw/current/bin:$PATH"
+
+# Unit tests:
 ./build/tests/aios_tests.exe
+
+# Full stack (mid-review demo):
+./build/aios_server.exe 8081          # terminal 1 — REST API on :8081 (use 8080 only if no Apache is running)
+cd ../frontend && npm install         # terminal 2
+npm run dev                           # dashboard on http://localhost:5173
 ```
 
 ---

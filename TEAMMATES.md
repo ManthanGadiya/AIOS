@@ -158,6 +158,17 @@ Next Recommended Step:
 
 # 8. Change Log
 
+## 2026-08-22
+
+* Mid-review GUI complete: REST server + React dashboard (roadmap section 9 "Mid Review GUI" scope).
+* C++ REST API server (aios/server, cpp-httplib + nlohmann/json in third_party): /api/statistics, /api/processes, /api/agents, /api/cpu, /api/memory, /api/scheduler, /api/interrupts, /api/events, POST /api/command.
+* START/PAUSE/STOP gate a 10 cycles/s host simulation loop; RESET restores the initial workload; CHANGE_SCHEDULER maps onto SchedulingPolicy.
+* Standard demo workload per PRD section 20: P1 TextEditor, P2 Compiler, P3 MusicPlayer + A1 Research Agent, A2 Coding Agent via createAgentProcess(); long-running programs so scheduling is visibly live during the demo.
+* Fixed CPU wiring: interrupt manager was not attached, so demand-paging page faults failed processes; now fault -> frame load -> instruction retry works live. HALT reaps TERMINATED, CPU-error halts reap FAILED.
+* React 19 + TypeScript + Tailwind v4 dashboard: TopBar controls with live cycle indicator, sidebar navigation, stat cards, process table, CPU registers panel, physical frame grid, page tables, ready queue, filterable event log, interrupt panel. All values fetched from the REST API (docs/13 sections 7-30, 59).
+* Verified end-to-end on port 8081 (frontend dev on 5173): RR context switches cycling five workloads, page-fault handling visible in event log, pause freezes cycle, reset restores initial state. Full suite still 131 test cases / 717 assertions passing.
+* Committed and pushed to https://github.com/ManthanGadiya/AIOS.git.
+
 ## 2026-08-20
 
 * M5 Scheduler complete: FCFS, Round Robin and Priority policies.
