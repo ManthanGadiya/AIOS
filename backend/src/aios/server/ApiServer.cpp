@@ -188,10 +188,11 @@ json ApiServer::schedulerToJson() const {
     
     j["currentAlgorithm"] = schedulingPolicyToString(sched_->policy());
     j["currentProcess"] = sched_->currentRunning();
-    j["readyQueue"] = sched_->readyQueue(); // Need to expose this
+    j["readyQueue"] = sched_->readyQueue();
     j["timeQuantum"] = sched_->timeQuantum();
     j["contextSwitchCount"] = sched_->contextSwitchCount();
     j["decisionCount"] = sched_->decisionCount();
+    j["currentTimeCycle"] = clock_ ? clock_->cycle() : 0;
     
     // History
     j["schedulingHistory"] = json::array();

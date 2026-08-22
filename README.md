@@ -669,7 +669,7 @@ export PATH="/c/Users/Admin/scoop/apps/mingw/current/bin:$PATH"
 ./build/tests/aios_tests.exe
 
 # Full stack (mid-review demo):
-./build/aios_server.exe 8081          # terminal 1 — REST API on :8081 (use 8080 only if no Apache is running)
+$env:PATH = "C:\Users\Admin\scoop\apps\mingw\current\bin;" + $env:PATH; & "D:\College\3rd Year\Sem 1\OS\AIOS\backend\build\aios_server.exe" 8081          # terminal 1 — REST API on :8081 (use 8080 only if no Apache is running)
 cd ../frontend && npm install         # terminal 2
 npm run dev                           # dashboard on http://localhost:5173
 ```

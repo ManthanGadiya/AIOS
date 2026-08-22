@@ -365,6 +365,7 @@ Dashboard reliability pass after first end-to-end testing.
 * Real dashboard statistics: cpuUsage now from ProcessManager::cpuUtilization(), memoryUsage from MemoryManager usedWords/totalWords, pageFaults from Memory Manager counters, scheduler metrics (avg waiting/turnaround/response, throughput) from getAllProcessStatistics() - all were hardcoded zeros before
 * Connection honesty in the UI: Engine Connected/Disconnected badge in the Top Bar, disconnection banner with last-known-state notice, Start/Pause buttons only reflect commands the engine actually accepted
 * One-screen layout: every panel has a bounded height and internal scrollbar (process table, CPU, frames, page tables, ready queue, interrupts, event log with working category filters); redundant AI-agent card folded into the process table Type column
+* Second polish pass: CPU panel compressed to a one-row register strip; memory as a 16x4 frame chip grid; page table toggles between processes (prev/next); new Scheduler panel with Gantt timeline from scheduling history so non-preemptive policies show visible progress (docs/13 sections 27/29); scheduler API now includes the current cycle
 * Verified live: CPU 98% utilization under Round Robin, page faults incrementing, frame ownership visible, duplicate instance rejected
 
 **2026-08-22 (Mid-Review GUI: REST server + React dashboard)**

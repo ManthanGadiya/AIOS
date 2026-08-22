@@ -10,6 +10,7 @@ import { PageTableComponent } from '../../components/MemoryGrid/PageTable';
 import { ReadyQueue } from '../../components/ReadyQueue/ReadyQueue';
 import { EventLog } from '../../components/EventLog/EventLog';
 import { InterruptPanel } from '../../components/InterruptPanel/InterruptPanel';
+import { SchedulerPanel } from '../../components/SchedulerPanel/SchedulerPanel';
 import { api } from '../../services/api';
 import { STAT_ICONS } from './statIcons';
 import type { SystemStatistics, Process, CPUState, MemoryFrame, PageTable, SchedulerState, InterruptEvent, EventLogEntry } from '../../types/os';
@@ -109,14 +110,15 @@ export function Dashboard({ connected = true }: DashboardProps) {
       {/* Level 2 - Process list spans full width, agents marked by Type column */}
       <ProcessTable processes={allProcesses} runningPid={scheduler?.currentProcess ?? null} />
 
-      {/* CPU / Memory / Paging row */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      {/* CPU / Memory / Paging row - compact panels */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 h-40">
         <CPUPanel cpu={cpu} />
         <MemoryGrid frames={memoryFrames} />
         <PageTableComponent pageTables={pageTables} />
       </div>
 
-      {/* Activity row: ready queue, interrupts, event log, IPC (IPC is a later milestone) */}
+      {/* Activity row: ready queue, scheduler+gantt, interrupts, event log */}
+      {/* (IPC panel returns with the Week 6 IPC manager) */}
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
         <div className="h-64 flex flex-col">
           <ReadyQueue
@@ -126,19 +128,13 @@ export function Dashboard({ connected = true }: DashboardProps) {
           />
         </div>
         <div className="h-64 flex flex-col">
+          <SchedulerPanel scheduler={scheduler} />
+        </div>
+        <div className="h-64 flex flex-col">
           <InterruptPanel interrupts={interrupts} />
         </div>
         <div className="h-64 flex flex-col">
           <EventLog events={events} maxEvents={60} />
-        </div>
-        <div className="h-64 bg-gray-800 border border-gray-700 rounded-lg p-4 flex flex-col">
-          <h3 className="font-medium text-gray-100 mb-2 flex items-center gap-2 text-sm">
-            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            IPC Messages
-          </h3>
-          <div className="flex-1 overflow-y-auto text-sm text-gray-500">IPC manager arrives with Week 6</div>
         </div>
       </div>
     </div>

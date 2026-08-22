@@ -5,21 +5,21 @@ interface CPUPanelProps {
   cpu: CPUState | null;
 }
 
-const FLAG_LABELS = [
-  { key: 'zero', label: 'Z', color: 'text-blue-400' },
-  { key: 'negative', label: 'N', color: 'text-red-400' },
-  { key: 'carry', label: 'C', color: 'text-yellow-400' },
-  { key: 'overflow', label: 'V', color: 'text-purple-400' },
-  { key: 'error', label: 'E', color: 'text-red-500' },
+const REGISTERS: { key: keyof Pick<CPUState, 'pc' | 'ir' | 'acc' | 'mar' | 'mbr'>; label: string }[] = [
+  { key: 'pc', label: 'PC' },
+  { key: 'ir', label: 'IR' },
+  { key: 'acc', label: 'ACC' },
+  { key: 'mar', label: 'MAR' },
+  { key: 'mbr', label: 'MBR' },
 ];
 
-const REGISTERS = [
-  { key: 'pc', label: 'PC', format: (v: number) => `0x${v.toString(16).toUpperCase().padStart(4, '0')}` },
-  { key: 'ir', label: 'IR', format: (v: number) => `0x${v.toString(16).toUpperCase().padStart(4, '0')}` },
-  { key: 'acc', label: 'ACC', format: (v: number) => v.toString() },
-  { key: 'mar', label: 'MAR', format: (v: number) => `0x${v.toString(16).toUpperCase().padStart(4, '0')}` },
-  { key: 'mbr', label: 'MBR', format: (v: number) => `0x${v.toString(16).toUpperCase().padStart(4, '0')}` },
-] as const;
+const FLAGS: { key: keyof CPUState['flags']; label: string; on: string }[] = [
+  { key: 'zero', label: 'Z', on: 'text-blue-300 border-blue-500/60 bg-blue-900/30' },
+  { key: 'negative', label: 'N', on: 'text-red-300 border-red-500/60 bg-red-900/30' },
+  { key: 'carry', label: 'C', on: 'text-yellow-300 border-yellow-500/60 bg-yellow-900/30' },
+  { key: 'overflow', label: 'V', on: 'text-purple-300 border-purple-500/60 bg-purple-900/30' },
+  { key: 'error', label: 'E', on: 'text-red-200 border-red-400/70 bg-red-800/40 animate-pulse' },
+];
 
 export function CPUPanel({ cpu }: CPUPanelProps) {
   if (!cpu) {
@@ -32,37 +32,34 @@ export function CPUPanel({ cpu }: CPUPanelProps) {
 
   return (
     <div className="bg-gray-800 border border-gray-700 rounded-lg flex flex-col h-full overflow-hidden">
-      <div className="px-4 py-2.5 border-b border-gray-700 bg-gray-900">
+      <div className="px-4 py-2.5 border-b border-gray-700 bg-gray-900 flex items-center justify-between">
         <h3 className="font-medium text-gray-100 text-sm">CPU State</h3>
-      </div>
-      
-      <div className="p-4 space-y-3 overflow-y-auto">
-        <div className="grid grid-cols-2 gap-3">
-          {REGISTERS.map(reg => (
-            <div key={reg.key} className="bg-gray-900 rounded p-3 border border-gray-700">
-              <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">{reg.label}</div>
-              <div className="font-mono text-lg text-gray-100">{reg.format(cpu[reg.key as keyof CPUState] as number)}</div>
-            </div>
+        {/* Flags inline in the header to keep the panel compact */}
+        <div className="flex items-center gap-1">
+          {FLAGS.map(f => (
+            <span
+              key={f.key}
+              title={f.key}
+              className={`w-5 h-5 flex items-center justify-center rounded border text-[10px] font-mono font-bold ${
+                cpu.flags[f.key] ? f.on : 'text-gray-600 border-gray-700'
+              }`}
+            >
+              {f.label}
+            </span>
           ))}
         </div>
+      </div>
 
-        <div className="border-t border-gray-700 pt-3">
-          <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">FLAGS</div>
-          <div className="flex flex-wrap gap-2">
-            {FLAG_LABELS.map(flag => (
-              <span
-                key={flag.key}
-                className={`px-2 py-1 rounded text-xs font-mono font-medium border ${
-                  cpu.flags[flag.key as keyof CPUState['flags']]
-                    ? `${flag.color} bg-${flag.color.replace('text-', '').replace('-400', '-900/30')} border-current`
-                    : 'text-gray-500 border-gray-600'
-                }`}
-              >
-                {flag.label}: {cpu.flags[flag.key as keyof CPUState['flags']] ? '1' : '0'}
-              </span>
-            ))}
+      {/* Registers as a single tight row */}
+      <div className="grid grid-cols-5 divide-x divide-gray-700 flex-1">
+        {REGISTERS.map(reg => (
+          <div key={reg.key} className="px-2 py-3 text-center">
+            <div className="text-[10px] uppercase tracking-wider text-gray-500">{reg.label}</div>
+            <div className="font-mono text-sm text-gray-100 mt-0.5 truncate" title={String(cpu[reg.key])}>
+              {cpu[reg.key]}
+            </div>
           </div>
-        </div>
+        ))}
       </div>
     </div>
   );
