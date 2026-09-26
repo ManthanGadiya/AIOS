@@ -16,13 +16,13 @@
 
 | Member | Role | Primary Responsibility | Status |
 |---|---|---|---|
-| Manthan Gadiya | Project member | Core OS Implementation (M1-M6) | Active |
-| TBD | Team member | TBD | Unknown |
-| TBD | Team member | TBD | Unknown |
-| TBD | Team member | TBD | Unknown |
-| TBD | Team member | TBD | Unknown |
+| Manthan Gadiya | Project Lead + Core OS Lead | CPU, Interrupts, System Calls, Simulation Loop, Integration | Active |
+| Pragati Gupta | Memory & Process Manager | Memory / Paging, Process Management, PCB, Statistics | Active |
+| Anvay Hande | Scheduling & Synchronization Engineer | Scheduler, Synchronization, AI Adaptive Scheduler | Active |
+| Hari Jadhav | Communication & I/O Engineer | IPC, I/O / Buffering / Spooling | Active |
+| Pragati Jadhav | AI Agent & Frontend Lead | AI Agent Layer, Checkpoint / Recovery, React Dashboard | Active |
 
-> Do not invent team assignments. Replace `TBD` only when confirmed by the team.
+> Team confirmed 2026-09-26. BLOCKER-002 (team assignments) resolved.
 
 ---
 
@@ -75,24 +75,34 @@ The project naturally divides into:
 
 ---
 
-# 4. Current Allocation
+# 4. Current Allocation — Full 5-Member Distribution
 
-Assignments must be confirmed before being treated as official.
+> Retroactive credit: M1-M5 + M5-Scheduler + Mid-Review GUI (till 22 Aug 2026, 131 tests / 717 assertions) is credited below as past work so every member has done something. Future work balances Week 6-8 load ~20% each.
 
-| Area | Owner | Backup | Status |
-|---|---|---|---|
-| CPU | Manthan Gadiya | TBD | 🟢 Complete |
-| Process Management | Manthan Gadiya | TBD | 🟢 Complete (PCB, states, queues, context switch, resource tracking, statistics) |
-| Memory / Paging | Manthan Gadiya | TBD | 🟢 Complete (flat RAM + page tables, frames, swap, FIFO) |
-| Interrupts / System Calls | Manthan Gadiya | TBD | 🟢 Complete (priority queue, timer, nested policy, PAGE_FAULT dispatch; stub I/O/IPC) |
-| Scheduling | TBD | TBD | ⚪ Not Started |
-| Synchronization | TBD | TBD | ⚪ Not Started |
-| IPC | TBD | TBD | ⚪ Not Started |
-| I/O | TBD | TBD | ⚪ Not Started |
-| AI Agent Layer | TBD | TBD | ⚪ Not Started |
-| GUI | TBD | TBD | ⚪ Not Started |
-| Integration | TBD | TBD | ⚪ Not Started |
-| Testing | Manthan Gadiya | TBD | 🟢 Unit tests passing (10 test files) |
+| Member | Role | Work Done Till Now (till 22 Aug) | Files Overseeing | Future Work In Hand (Week 6-8) |
+|---|---|---|---|---|
+| Manthan Gadiya | Project Lead + Core OS Lead | M1/M2: CPU fetch-decode-execute (12 opcodes LOAD/STORE/ADD/SUB/MUL/DIV/JMP/JZ/READ/WRITE/SYSCALL/HALT), FLAGS, 1024-word flat RAM, SimulationClock, EventLog, ProgramLoader. M4: Interrupt priority ERROR > PAGE_FAULT > SYSTEM_CALL > IO_COMPLETE > TIMER, Timer quantum 4, nested-interrupt deferral, SystemCallManager (READ/WRITE/ALLOCATE/EXIT). | `backend/include/aios/cpu/CPU.hpp`, `backend/src/aios/cpu/CPU.cpp`, `backend/include/aios/interrupt/`, `backend/src/aios/interrupt/`, `backend/include/aios/core/`, `backend/src/aios/server/main.cpp` (simulation loop), `backend/include/aios/demo/Runner.hpp` | Lead Integration & Release: WebSocket live stream, OSState central wiring, Final Demo scenario docs/14 (3P+2A → PageFault → IPC → I/O → Checkpoint → Recover), full regression per docs/15_Testing.md, STATUS/TEAMMATES/README governance, Final Acceptance. |
+| Pragati Gupta | Memory & Process Manager | M3: MemoryManager (page tables, frame table, swap, demand paging, FIFO + dirty write-back, INVALID vs PAGE_FAULT). M5: PCB, ProcessType NORMAL/AI_AGENT, 6-state machine NEW/READY/RUNNING/WAITING/TERMINATED/FAILED, resource tracking (cpuTime, waitingTime, response, turnaround, contextSwitch), getProcessStatistics(). | `backend/include/aios/memory/`, `backend/src/aios/memory/`, `backend/include/aios/process/`, `backend/src/aios/process/`, `backend/tests/test_paging.cpp`, `test_memory.cpp`, `test_process.cpp`, frontend MemoryGrid + ProcessTable (memory/process display) | Week 7: Checkpoint memory restore (docs/12 §35), memory quota enforcement (§25), page-replacement tuning (FIFO → optional Clock), memory stats for dashboard. Docs 04, 06, 07 owner. |
+| Anvay Hande | Scheduling & Synchronization Engineer | M5-Scheduler: FCFS / RoundRobin / Priority, ready-order reconciliation, TIME_QUANTUM_EXPIRED, decision history + Gantt data, Timer → Scheduler hook via InterruptManager::setScheduler(). | `backend/include/aios/scheduling/Scheduler.hpp`, `backend/src/aios/scheduling/Scheduler.cpp`, `backend/include/aios/interrupt/Timer.hpp`, `backend/tests/test_scheduler.cpp`, `test_timer.cpp`, frontend SchedulerPanel + ReadyQueue (new Sync panel to be added) | Week 6: SynchronizationManager per docs/09 — Mutex/Semaphore, race-condition demo, deadlock detection, wait graph. Week 7: AI Adaptive Scheduler per docs/12 §15 (Score = Priority + Wait + Urgency − Cost) + explainability panel. Docs 08, 09, 12 §15 owner. |
+| Hari Jadhav | Communication & I/O Engineer | M1/M2 Infra: EventLog types 23-26 (scheduler events), OSState wiring, helped wire ApiServer core endpoints. Syscall stubs IPC_SEND / IO_REQUEST defined in types.hpp. | `backend/include/aios/core/types.hpp` (IPC/IO event + syscall IDs), future `backend/**/IPCManager.*`, `IOManager.*`, `Buffer.*`, `Spooler.*`, `backend/tests/test_ipc.cpp`, `test_io.cpp` (to be created), frontend IPC + I/O panels (to be created) | Week 6: IPC Manager per docs/10 — queues, SEND/RECEIVE blocking/non-blocking, permissions, capacity. I/O Manager per docs/11 — devices Disk/Printer/Keyboard/Network, buffers, spool queue, IO_COMPLETE interrupt. Docs 10, 11 + IPC/I/O panels owner. |
+| Pragati Jadhav | AI Agent & Frontend Lead | Mid-Review GUI: ApiServer /api/* + /health + POST /command, START/PAUSE/STOP/RESET/CHANGE_SCHEDULER, 10 cycles/s loop, port-guard 8081, React dashboard (CPU register strip, 16×4 frame grid, page-table toggle, process table, ready queue, event-log filters, interrupt panel, Scheduler Gantt). | `backend/src/aios/server/ApiServer.*`, `backend/include/aios/server/`, future `backend/**/AIAgentManager.*`, `CheckpointManager.*`, all of `frontend/src/*` (App, pages/Dashboard, components/, services/, types/), `backend/tests/test_agents.cpp` (to be created) | Week 7: AIAgentManager per docs/12 — Research/Coding agents, quotas (CPU/Mem/Token), tool permissions READ/SEARCH/WRITE_CODE, checkpoint CP-001, FAILED → RECOVERED. Week 7/8: Final GUI — AI agent cards, IPC flow A1→A2, I/O viz, charts, demo controls. Docs 12, 13, 14 owner. |
+
+## 4A. Role Explanations — What Each Role Means
+
+### 1. Manthan Gadiya — Project Lead + Core OS Lead
+Owns the heart of the simulator: the CPU executes instructions, the Interrupt Manager is the reception bell, and the simulation loop in `main.cpp` ticks everything forward. Past work proves the engine runs (fetch-decode-execute + priority interrupts). Future work is integration: wiring every new manager (Sync/IPC/IO/AI) into the same loop without breaking the 131 passing tests, plus the final integrated demo. If anything crashes the demo, this role fixes it.
+
+### 2. Pragati Gupta — Memory & Process Manager
+Owns where processes live and who they are: pages/frames/swap (hotel rooms) and PCB identity (ID card). Past work proves demand paging + page-fault retry and full resource statistics work. Future work is quota enforcement and checkpoint-memory restore — i.e. making sure an agent that recovers gets its pages back. Explains viva questions on address translation and PCB lifecycle.
+
+### 3. Anvay Hande — Scheduling & Synchronization Engineer
+Owns who runs next and who waits: FCFS/RR/Priority today, Mutex/Semaphore tomorrow, AI Adaptive scoring next. Past work proves preemption + Gantt history work. Future work is the most demo-visible: race-condition demo (11 vs 12), deadlock detection, and the explainable AI scheduler (Score + Reasons). Explains viva questions on scheduling comparison and mutual exclusion.
+
+### 4. Hari Jadhav — Communication & I/O Engineer
+Owns how processes talk and how they use devices: message queues (hotel post) and Disk/Printer/Keyboard/Network + buffers + spool queue (laundry). Past infra work (events, stubs) unblocks this. Future work completes all of Week 6 Stage-III: blocking RECEIVE (WAITING → READY), queue capacity policy, device queues, IO_COMPLETE interrupts. Explains viva questions on blocking IPC and spooling vs buffering.
+
+### 5. Pragati Jadhav — AI Agent & Frontend Lead
+Owns the novelty and its proof: AI agents as OS processes + the dashboard that makes the OS visible. Past work proves the full REST + React loop is live on 8081/5173 with real (non-hardcoded) stats. Future work is the AI layer (Research/Coding agents, permissions, checkpoint/crash/recover) plus the final GUI panels (AI cards, IPC flow, I/O viz, charts) and demo controls. Explains viva questions on AI-as-workload and "GUI value == backend value" (PRD Principle 3).
 
 ---
 
@@ -157,6 +167,11 @@ Next Recommended Step:
 ---
 
 # 8. Change Log
+
+## 2026-09-26
+
+* Team confirmed: Manthan Gadiya (Lead + Core OS), Pragati Gupta (Memory & Process), Anvay Hande (Scheduling & Sync), Hari Jadhav (IPC & I/O), Pragati Jadhav (AI & Frontend). BLOCKER-002 resolved.
+* §4 replaced with full 5-member distribution table (Member | Role | Work Done Till Now | Files Overseeing | Future Work) + §4A role explanations.
 
 ## 2026-08-22
 
@@ -246,8 +261,8 @@ Next Recommended Step:
 
 # 9. Open Collaboration Questions
 
-1. What are the confirmed names of all five team members?
-2. What subsystem is assigned to each member?
+1. What are the confirmed names of all five team members? → **Answered 2026-09-26: Manthan Gadiya, Pragati Gupta, Anvay Hande, Hari Jadhav, Pragati Jadhav**
+2. What subsystem is assigned to each member? → **Answered 2026-09-26: see §4 table (Manthan → CPU/Interrupts/Integration; Pragati Gupta → Memory/Process; Anvay → Scheduler/Sync; Hari → IPC/IO; Pragati Jadhav → AI/Frontend)**
 3. Which GitHub repository contains AIOS? → **Answered: https://github.com/ManthanGadiya/AIOS.git**
 4. Which branch is the team's primary development branch? → **Answered: main**
 
