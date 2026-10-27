@@ -62,10 +62,10 @@ TEST_CASE("T-SC-001: READ pops the next input value") {
     CHECK(h.syscalls.handleSystemCall(SyscallRequest{1, SYSCALL_READ}).returnValue == -7);
 }
 
-TEST_CASE("T-SC-002: READ on an empty queue returns ERROR") {
+TEST_CASE("T-SC-002: READ on an empty queue returns ERR") {
     Harness h;
     const SyscallResult r = h.syscalls.handleSystemCall(SyscallRequest{1, SYSCALL_READ});
-    CHECK(r.status == SyscallStatus::ERROR);
+    CHECK(r.status == SyscallStatus::ERR);
 }
 
 TEST_CASE("T-SC-003: WRITE emits PID <pid> WRITE") {

@@ -4,17 +4,18 @@
 #include "aios/core/SimulationClock.hpp"
 #include "aios/cpu/CPU.hpp"
 #include "aios/interrupt/InterruptManager.hpp"
+#include "aios/ipc/IPCManager.hpp"
 #include "aios/memory/Memory.hpp"
 #include "aios/memory/MemoryManager.hpp"
 #include "aios/process/ProcessManager.hpp"
 #include "aios/scheduling/Scheduler.hpp"
+#include "aios/sync/SynchronizationManager.hpp"
 #include "httplib.h"
 
 #include <nlohmann/json.hpp>
 #include <atomic>
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -36,6 +37,8 @@ public:
     void setClock(SimulationClock* clock);
     void setScheduler(Scheduler* sched);
     void setInterruptManager(InterruptManager* im);
+    void setSynchronizationManager(SynchronizationManager* sync);
+    void setIPCManager(IPCManager* ipc);
 
     // Simulation run-state control: START/PAUSE/STOP write this flag and the
     // host simulation loop reads it each tick (docs/13 sections 8-11).
@@ -49,6 +52,9 @@ public:
     // False after start() when the port could not be bound (already in use).
     bool ok() const { return boundOk_; }
 
+    // Broadcast an event to all WebSocket clients
+    void broadcastEvent(const json& event);
+
 private:
     void setupRoutes();
     void setupWebSocket();
@@ -61,6 +67,10 @@ private:
     json statisticsToJson() const;
     json interruptsToJson() const;
     json eventsToJson(int limit = 100) const;
+    json ipcToJson() const;
+    json mutexesToJson() const;
+    json semaphoresToJson() const;
+    json ioToJson() const;
 
     httplib::Server server_;
     int port_;
@@ -77,6 +87,8 @@ private:
     SimulationClock* clock_ = nullptr;
     Scheduler* sched_ = nullptr;
     InterruptManager* im_ = nullptr;
+    SynchronizationManager* sync_ = nullptr;
+    IPCManager* ipc_ = nullptr;
 
     // Simulation control shared with the host loop
     std::atomic<bool>* runFlag_ = nullptr;

@@ -7,7 +7,7 @@ add_executable(aios_tests
     test_syscall.cpp
     test_timer.cpp
     test_process.cpp
-    test_sync_min.cpp
+    test_sync.cpp
     test_cpu.cpp
     test_loader.cpp
     test_memory.cpp

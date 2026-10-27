@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <iostream>
+#include <sstream>
 
 namespace aios {
 
@@ -20,12 +21,15 @@ void ApiServer::setEventLog(EventLog* log) { log_ = log; }
 void ApiServer::setClock(SimulationClock* clock) { clock_ = clock; }
 void ApiServer::setScheduler(Scheduler* sched) { sched_ = sched; }
 void ApiServer::setInterruptManager(InterruptManager* im) { im_ = im; }
+void ApiServer::setSynchronizationManager(SynchronizationManager* sync) { sync_ = sync; }
+void ApiServer::setIPCManager(IPCManager* ipc) { ipc_ = ipc; }
 
 void ApiServer::start() {
     if (running_) return;
     running_ = true;
     std::cout << "[ApiServer] Setting up routes..." << std::endl;
     setupRoutes();
+    setupWebSocket();
     std::cout << "[ApiServer] Routes set up, starting server..." << std::endl;
     
     // Bind synchronously so a port conflict fails loudly here instead of
@@ -47,11 +51,18 @@ void ApiServer::start() {
 void ApiServer::stop() {
     if (!running_) return;
     running_ = false;
+    
     server_.stop();
     if (serverThread_.joinable()) {
         serverThread_.join();
     }
     std::cout << "[ApiServer] Stopped" << std::endl;
+}
+
+void ApiServer::broadcastEvent(const json& event) {
+    // WebSocket broadcast not implemented in this httplib version
+    // Frontend can use /api/events/poll for event streaming
+    (void)event; // unused parameter
 }
 
 json ApiServer::processToJson(const ProcessControlBlock* pcb) const {
@@ -366,6 +377,17 @@ json ApiServer::eventsToJson(int limit) const {
             case EventType::PROCESS_PREEMPTED: category = "SCHEDULER"; break;
             case EventType::TIME_QUANTUM_EXPIRED: category = "SCHEDULER"; break;
             case EventType::CPU_ERROR: category = "ERROR"; break;
+            // Sync events
+            case EventType::MUTEX_CREATED: case EventType::MUTEX_LOCKED: case EventType::MUTEX_UNLOCKED:
+            case EventType::PROCESS_BLOCKED_ON_MUTEX: case EventType::PROCESS_WAKEUP:
+            case EventType::SEMAPHORE_CREATED: case EventType::SEMAPHORE_WAIT: case EventType::SEMAPHORE_SIGNAL:
+            case EventType::DEADLOCK_DETECTED: case EventType::SYNCHRONIZATION_ERROR:
+                category = "SYNCHRONIZATION"; break;
+            // IPC events
+            case EventType::IPC_CHANNEL_CREATED: case EventType::IPC_SEND: case EventType::IPC_RECEIVE:
+            case EventType::IPC_MESSAGE_QUEUED: case EventType::IPC_MESSAGE_DELIVERED:
+            case EventType::IPC_QUEUE_FULL: case EventType::IPC_PERMISSION_DENIED: case EventType::IPC_ERROR:
+                category = "IPC"; break;
             default: category = "PROCESS";
         }
         
@@ -379,6 +401,81 @@ json ApiServer::eventsToJson(int limit) const {
     }
     
     return j;
+}
+
+json ApiServer::ipcToJson() const {
+    json arr = json::array();
+    if (!ipc_) return arr;
+    
+    // Get all channels and their messages
+    for (int pid = 0; pid < 256; ++pid) {
+        auto channel = ipc_->getChannel(pid);
+        if (channel) {
+            auto messages = ipc_->getMessages(pid);
+            for (const auto& ipcMsg : messages) {
+                json msg;
+                msg["id"] = ipcMsg.id;
+                msg["senderPid"] = ipcMsg.senderPid;
+                msg["receiverPid"] = ipcMsg.receiverPid;
+                msg["type"] = ipcMsg.type;
+                msg["payload"] = ipcMsg.payload;
+                msg["timestamp"] = ipcMsg.timestamp;
+                msg["channelId"] = "Q" + std::to_string(pid);
+                arr.push_back(msg);
+            }
+        }
+    }
+    
+    return arr;
+}
+
+json ApiServer::mutexesToJson() const {
+    json arr = json::array();
+    if (!sync_) return arr;
+    
+    auto mutexIds = sync_->listMutexes();
+    for (const auto& id : mutexIds) {
+        auto mutexOpt = sync_->getMutex(id);
+        if (mutexOpt) {
+            const auto& mutex = *mutexOpt;
+            json m;
+            m["id"] = id;
+            m["locked"] = mutex.isLocked();
+            m["ownerPid"] = mutex.ownerPid();
+            m["waiters"] = mutex.waitingQueue();
+            m["waiterCount"] = mutex.waitingQueue().size();
+            arr.push_back(m);
+        }
+    }
+    
+    return arr;
+}
+
+json ApiServer::semaphoresToJson() const {
+    json arr = json::array();
+    if (!sync_) return arr;
+    
+    auto semIds = sync_->listSemaphores();
+    for (const auto& id : semIds) {
+        auto semOpt = sync_->getSemaphore(id);
+        if (semOpt) {
+            const auto& sem = *semOpt;
+            json s;
+            s["id"] = id;
+            s["count"] = sem.count();
+            s["waiters"] = sem.waitingQueue();
+            s["waiterCount"] = sem.waitingQueue().size();
+            arr.push_back(s);
+        }
+    }
+    
+    return arr;
+}
+
+json ApiServer::ioToJson() const {
+    // Placeholder for I/O subsystem (Week 7)
+    json arr = json::array();
+    return arr;
 }
 
 void ApiServer::setupRoutes() {
@@ -428,6 +525,8 @@ void ApiServer::setupRoutes() {
                 if (clock_) clock_->reset();
                 if (log_) log_->clear();
                 if (sched_) sched_->reset();
+                if (sync_) sync_->reset();
+                if (ipc_) ipc_->reset();
                 if (resetHook_) resetHook_();
                 success = true;
             } else if (command == "CHANGE_SCHEDULER") {
@@ -507,31 +606,369 @@ void ApiServer::setupRoutes() {
         res.set_content(eventsToJson(100).dump(), "application/json");
     });
     
+    // New endpoints for Sync + IPC
     server_.Get("/api/ipc", [this](const httplib::Request&, httplib::Response& res) {
-        json arr = json::array(); // Placeholder
-        res.set_content(arr.dump(), "application/json");
-    });
-    
-    server_.Get("/api/io", [this](const httplib::Request&, httplib::Response& res) {
-        json arr = json::array(); // Placeholder
-        res.set_content(arr.dump(), "application/json");
+        res.set_content(ipcToJson().dump(), "application/json");
     });
     
     server_.Get("/api/mutexes", [this](const httplib::Request&, httplib::Response& res) {
-        json arr = json::array(); // Placeholder
+        res.set_content(mutexesToJson().dump(), "application/json");
+    });
+    
+    server_.Get("/api/semaphores", [this](const httplib::Request&, httplib::Response& res) {
+        res.set_content(semaphoresToJson().dump(), "application/json");
+    });
+    
+    server_.Get("/api/io", [this](const httplib::Request&, httplib::Response& res) {
+        res.set_content(ioToJson().dump(), "application/json");
+    });
+    
+    // IPC send/receive commands
+    server_.Post("/api/ipc/send", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            int sender = body.value("senderPid", -1);
+            int receiver = body.value("receiverPid", -1);
+            std::string type = body.value("type", "");
+            std::string payload = body.value("payload", "");
+            
+            if (sender < 0 || receiver < 0 || type.empty()) {
+                res.status = 400;
+                res.set_content(json{{"success", false}, {"error", "Invalid parameters"}}.dump(), "application/json");
+                return;
+            }
+            
+            if (!ipc_) {
+                res.status = 503;
+                res.set_content(json{{"success", false}, {"error", "IPC not initialized"}}.dump(), "application/json");
+                return;
+            }
+            
+            int msgId = ipc_->sendMessage(sender, receiver, type, payload);
+            bool success = msgId != INVALID_PID;
+            
+            // Broadcast event
+            if (success) {
+                broadcastEvent(json{
+                    {"type", "IPC_MESSAGE"},
+                    {"senderPid", sender},
+                    {"receiverPid", receiver},
+                    {"messageType", type},
+                    {"messageId", msgId},
+                    {"timestamp", clock_ ? clock_->cycle() : 0}
+                });
+            }
+            
+            json response;
+            response["success"] = success;
+            response["messageId"] = msgId;
+            if (!success) response["error"] = "Send failed (queue full, no permission, etc.)";
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
+    });
+    
+    server_.Post("/api/ipc/receive", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            int receiver = body.value("receiverPid", -1);
+            bool blocking = body.value("blocking", true);
+            
+            if (receiver < 0) {
+                res.status = 400;
+                res.set_content(json{{"success", false}, {"error", "Invalid receiver"}}.dump(), "application/json");
+                return;
+            }
+            
+            if (!ipc_) {
+                res.status = 503;
+                res.set_content(json{{"success", false}, {"error", "IPC not initialized"}}.dump(), "application/json");
+                return;
+            }
+            
+            auto msg = ipc_->receiveMessage(receiver, blocking);
+            if (msg) {
+                json response;
+                response["success"] = true;
+                response["message"] = json{
+                    {"id", msg->id},
+                    {"senderPid", msg->senderPid},
+                    {"receiverPid", msg->receiverPid},
+                    {"type", msg->type},
+                    {"payload", msg->payload},
+                    {"timestamp", msg->timestamp}
+                };
+                res.set_content(response.dump(), "application/json");
+            } else {
+                json response;
+                response["success"] = false;
+                response["blocking"] = blocking;
+                response["message"] = nullptr;
+                res.set_content(response.dump(), "application/json");
+            }
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
+    });
+    
+    // Sync commands
+    server_.Post("/api/sync/lock", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            std::string mutexId = body.value("mutexId", "");
+            int pid = body.value("pid", -1);
+            
+            if (mutexId.empty() || pid < 0 || !sync_) {
+                res.status = 400;
+                res.set_content(json{{"success", false}, {"error", "Invalid parameters"}}.dump(), "application/json");
+                return;
+            }
+            
+            bool success = sync_->lockMutex(mutexId, pid);
+            
+            if (success) {
+                broadcastEvent(json{
+                    {"type", "MUTEX_LOCKED"},
+                    {"mutexId", mutexId},
+                    {"pid", pid},
+                    {"timestamp", clock_ ? clock_->cycle() : 0}
+                });
+            } else {
+                broadcastEvent(json{
+                    {"type", "PROCESS_BLOCKED_ON_MUTEX"},
+                    {"mutexId", mutexId},
+                    {"pid", pid},
+                    {"timestamp", clock_ ? clock_->cycle() : 0}
+                });
+            }
+            
+            json response;
+            response["success"] = success;
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
+    });
+    
+    server_.Post("/api/sync/unlock", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            std::string mutexId = body.value("mutexId", "");
+            int pid = body.value("pid", -1);
+            
+            if (mutexId.empty() || pid < 0 || !sync_) {
+                res.status = 400;
+                res.set_content(json{{"success", false}, {"error", "Invalid parameters"}}.dump(), "application/json");
+                return;
+            }
+            
+            int next = sync_->unlockMutex(mutexId, pid);
+            bool success = next != INVALID_PID;
+            auto mutexOpt = sync_->getMutex(mutexId);
+            if (mutexOpt && !mutexOpt->isLocked()) {
+                success = true;
+            }
+            
+            if (success) {
+                broadcastEvent(json{
+                    {"type", "MUTEX_UNLOCKED"},
+                    {"mutexId", mutexId},
+                    {"pid", pid},
+                    {"nextWaiter", next},
+                    {"timestamp", clock_ ? clock_->cycle() : 0}
+                });
+                if (next != INVALID_PID) {
+                    broadcastEvent(json{
+                        {"type", "PROCESS_WAKEUP"},
+                        {"mutexId", mutexId},
+                        {"pid", next},
+                        {"timestamp", clock_ ? clock_->cycle() : 0}
+                    });
+                }
+            } else {
+                broadcastEvent(json{
+                    {"type", "SYNCHRONIZATION_ERROR"},
+                    {"mutexId", mutexId},
+                    {"pid", pid},
+                    {"timestamp", clock_ ? clock_->cycle() : 0}
+                });
+            }
+            
+            json response;
+            response["success"] = success;
+            response["nextWaiter"] = next;
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
+    });
+    
+    server_.Post("/api/sync/wait", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            std::string semId = body.value("semaphoreId", "");
+            int pid = body.value("pid", -1);
+            
+            if (semId.empty() || pid < 0 || !sync_) {
+                res.status = 400;
+                res.set_content(json{{"success", false}, {"error", "Invalid parameters"}}.dump(), "application/json");
+                return;
+            }
+            
+            bool success = sync_->waitSemaphore(semId, pid);
+            
+            if (success) {
+                broadcastEvent(json{
+                    {"type", "SEMAPHORE_WAIT"},
+                    {"semaphoreId", semId},
+                    {"pid", pid},
+                    {"timestamp", clock_ ? clock_->cycle() : 0}
+                });
+            } else {
+                broadcastEvent(json{
+                    {"type", "PROCESS_BLOCKED_ON_MUTEX"},
+                    {"semaphoreId", semId},
+                    {"pid", pid},
+                    {"timestamp", clock_ ? clock_->cycle() : 0}
+                });
+            }
+            
+            json response;
+            response["success"] = success;
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
+    });
+    
+    server_.Post("/api/sync/signal", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            std::string semId = body.value("semaphoreId", "");
+            
+            if (semId.empty() || !sync_) {
+                res.status = 400;
+                res.set_content(json{{"success", false}, {"error", "Invalid parameters"}}.dump(), "application/json");
+                return;
+            }
+            
+            int next = sync_->signalSemaphore(semId);
+            bool success = next != INVALID_PID;
+            auto semOpt = sync_->getSemaphore(semId);
+            if (semOpt && semOpt->count() >= 0) {
+                success = true;
+            }
+            
+            if (success) {
+                broadcastEvent(json{
+                    {"type", "SEMAPHORE_SIGNAL"},
+                    {"semaphoreId", semId},
+                    {"nextWaiter", next},
+                    {"timestamp", clock_ ? clock_->cycle() : 0}
+                });
+                if (next != INVALID_PID) {
+                    broadcastEvent(json{
+                        {"type", "PROCESS_WAKEUP"},
+                        {"semaphoreId", semId},
+                        {"pid", next},
+                        {"timestamp", clock_ ? clock_->cycle() : 0}
+                    });
+                }
+            }
+            
+            json response;
+            response["success"] = success;
+            response["nextWaiter"] = next;
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
+    });
+    
+    // State endpoints
+    server_.Get("/api/statistics", [this](const httplib::Request&, httplib::Response& res) {
+        res.set_content(statisticsToJson().dump(), "application/json");
+    });
+    
+    server_.Get("/api/processes", [this](const httplib::Request&, httplib::Response& res) {
+        json arr = json::array();
+        if (pm_) {
+            for (int pid = 0; pid < 256; ++pid) {
+                auto* pcb = pm_->getProcess(pid);
+                if (pcb && pcb->type == ProcessType::NORMAL) {
+                    arr.push_back(processToJson(pcb));
+                }
+            }
+        }
         res.set_content(arr.dump(), "application/json");
     });
-}
-
-void ApiServer::setupWebSocket() {
+    
+    server_.Get("/api/agents", [this](const httplib::Request&, httplib::Response& res) {
+        json arr = json::array();
+        if (pm_) {
+            for (int pid = 0; pid < 256; ++pid) {
+                auto* pcb = pm_->getProcess(pid);
+                if (pcb && pcb->type == ProcessType::AI_AGENT) {
+                    arr.push_back(agentToJson(pcb));
+                }
+            }
+        }
+        res.set_content(arr.dump(), "application/json");
+    });
+    
+    server_.Get("/api/cpu", [this](const httplib::Request&, httplib::Response& res) {
+        res.set_content(cpuToJson().dump(), "application/json");
+    });
+    
+    server_.Get("/api/memory", [this](const httplib::Request&, httplib::Response& res) {
+        res.set_content(memoryToJson().dump(), "application/json");
+    });
+    
+    server_.Get("/api/scheduler", [this](const httplib::Request&, httplib::Response& res) {
+        res.set_content(schedulerToJson().dump(), "application/json");
+    });
+    
+    server_.Get("/api/interrupts", [this](const httplib::Request&, httplib::Response& res) {
+        res.set_content(interruptsToJson().dump(), "application/json");
+    });
+    
+    server_.Get("/api/events", [this](const httplib::Request&, httplib::Response& res) {
+        res.set_content(eventsToJson(100).dump(), "application/json");
+    });
+    
+    // New endpoints for Sync + IPC
+    server_.Get("/api/ipc", [this](const httplib::Request&, httplib::Response& res) {
+        res.set_content(ipcToJson().dump(), "application/json");
+    });
+    
+    server_.Get("/api/mutexes", [this](const httplib::Request&, httplib::Response& res) {
+        res.set_content(mutexesToJson().dump(), "application/json");
+    });
+    
+    server_.Get("/api/semaphores", [this](const httplib::Request&, httplib::Response& res) {
+        res.set_content(semaphoresToJson().dump(), "application/json");
+    });
+    
+    server_.Get("/api/io", [this](const httplib::Request&, httplib::Response& res) {
+        res.set_content(ioToJson().dump(), "application/json");
+    });
+    
+    // WebSocket endpoint - simplified for this httplib version
     server_.Get("/ws", [this](const httplib::Request& req, httplib::Response& res) {
         if (req.has_header("Upgrade") && req.get_header_value("Upgrade") == "websocket") {
-            // Handle WebSocket upgrade manually
+            // Note: Full WebSocket support requires httplib WebSocket extension
+            // For now, return upgrade headers - actual WebSocket handling is limited
             res.status = 101;
             res.set_header("Upgrade", "websocket");
             res.set_header("Connection", "Upgrade");
-            // Note: cpp-httplib WebSocket support is limited
-            // For production, consider using a dedicated WebSocket library
+            res.set_header("Sec-WebSocket-Accept", "dummy"); // Simplified
         } else {
             res.status = 400;
             res.set_content("WebSocket upgrade required", "text/plain");
@@ -542,14 +979,12 @@ void ApiServer::setupWebSocket() {
     server_.Get("/api/events/poll", [this](const httplib::Request& req, httplib::Response& res) {
         std::string sinceStr = req.get_param_value("since");
         int since = sinceStr.empty() ? 0 : std::stoi(sinceStr);
-        // Return events after 'since' index (using event vector index as id)
         json j = json::array();
         if (log_) {
             const auto& events = log_->events();
             for (size_t i = since; i < events.size(); ++i) {
                 const auto& e = events[i];
                 std::string category = "PROCESS";
-                // ... same category logic as eventsToJson
                 json evtEntry;
                 evtEntry["id"] = static_cast<int>(i);
                 evtEntry["timestamp"] = std::to_string(e.cycle);
@@ -561,6 +996,10 @@ void ApiServer::setupWebSocket() {
         }
         res.set_content(j.dump(), "application/json");
     });
+}
+
+void ApiServer::setupWebSocket() {
+    // WebSocket setup is handled in setupRoutes via /ws endpoint
 }
 
 } // namespace aios

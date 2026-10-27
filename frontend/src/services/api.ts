@@ -1,7 +1,7 @@
 // API Layer - REST communication with C++ backend
 // Per docs/13_GUI_Architecture.md sections 51-53, 56
 
-import type { SimulationControl, SystemStatistics, Process, Agent, CPUState, MemoryFrame, PageTable, SchedulerState, InterruptEvent, EventLogEntry, IpcMessage, IODevice, Mutex, ApiResponse, WSMessage } from '../types/os';
+import type { SimulationControl, SystemStatistics, Process, Agent, CPUState, MemoryFrame, PageTable, SchedulerState, InterruptEvent, EventLogEntry, IpcMessage, IODevice, Mutex, Semaphore, IpcSendRequest, IpcReceiveRequest, IpcSendResponse, IpcReceiveResponse, SyncLockRequest, SyncUnlockRequest, SyncWaitRequest, SyncSignalRequest, SyncLockResponse, SyncUnlockResponse, SyncWaitResponse, SyncSignalResponse, ApiResponse, WSMessage } from '../types/os';
 
 // Type exports
 export type { SimulationControl } from '../types/os';
@@ -101,6 +101,54 @@ class ApiService {
 
   getMutexes() {
     return this.request<Mutex[]>('/mutexes');
+  }
+
+  getSemaphores() {
+    return this.request<Semaphore[]>('/semaphores');
+  }
+
+  // IPC Operations
+  sendIpcMessage(request: IpcSendRequest) {
+    return this.request<IpcSendResponse>('/ipc/send', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  receiveIpcMessage(request: IpcReceiveRequest) {
+    return this.request<IpcReceiveResponse>('/ipc/receive', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  // Sync Operations
+  lockMutex(request: SyncLockRequest) {
+    return this.request<SyncLockResponse>('/sync/lock', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  unlockMutex(request: SyncUnlockRequest) {
+    return this.request<SyncUnlockResponse>('/sync/unlock', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  waitSemaphore(request: SyncWaitRequest) {
+    return this.request<SyncWaitResponse>('/sync/wait', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  signalSemaphore(request: SyncSignalRequest) {
+    return this.request<SyncSignalResponse>('/sync/signal', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
   }
 }
 

@@ -121,13 +121,13 @@ TEST_CASE("T-INT-005: SYSTEM_CALL EXIT terminates the calling process") {
     CHECK(h.hasEvent(EventType::INTERRUPT));
 }
 
-TEST_CASE("T-INT-006: ERROR interrupt marks the process failed") {
+TEST_CASE("T-INT-006: ERR interrupt marks the process failed") {
     Harness h;
     const int pid = h.pm.createProcess("a", 1, tinyProgram(), 0);
     REQUIRE(h.pm.admit(pid));
     REQUIRE(h.pm.dispatch(pid));
 
-    h.im.generateInterrupt(InterruptType::ERROR, pid, 0);
+    h.im.generateInterrupt(InterruptType::ERR, pid, 0);
     REQUIRE(h.im.serviceNextInterrupt());
     CHECK(h.pm.getProcess(pid)->state == ProcessState::FAILED);
 }
@@ -159,7 +159,7 @@ TEST_CASE("T-INT-008: servicing records an INTERRUPT event") {
 
 TEST_CASE("T-INT-009: interrupt priority order follows docs/05 section 19") {
     // Lower value = higher priority. Order finalized during implementation.
-    CHECK(InterruptManager::priorityOf(InterruptType::ERROR) <
+    CHECK(InterruptManager::priorityOf(InterruptType::ERR) <
           InterruptManager::priorityOf(InterruptType::PAGE_FAULT));
     CHECK(InterruptManager::priorityOf(InterruptType::PAGE_FAULT) <
           InterruptManager::priorityOf(InterruptType::SYSTEM_CALL));

@@ -337,7 +337,7 @@ void CPU::raiseInvalidAccess(uint32_t logicalAddress) {
     }
     // An out-of-bounds access is an unrecoverable error: the ERROR interrupt
     // marks the process FAILED (docs/05 section 4).
-    interruptManager_->generateInterrupt(InterruptType::ERROR, currentPid_,
+    interruptManager_->generateInterrupt(InterruptType::ERR, currentPid_,
                                          static_cast<int32_t>(logicalAddress));
     state_ = CpuState::INTERRUPTED;
 }

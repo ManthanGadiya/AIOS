@@ -8,6 +8,8 @@ add_library(aios_core STATIC
     aios/interrupt/InterruptManager.cpp
     aios/interrupt/SystemCallManager.cpp
     aios/interrupt/Timer.cpp
+    aios/sync/SynchronizationManager.cpp
+    aios/ipc/IPCManager.cpp
     aios/server/ApiServer.cpp
 )
 

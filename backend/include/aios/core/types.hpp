@@ -140,7 +140,7 @@ enum class InterruptType : int32_t {
     TIMER = 0,
     SYSTEM_CALL = 1,
     IO_COMPLETE = 2,
-    ERROR = 3,
+    ERR = 3,
     PAGE_FAULT = 4
 };
 
@@ -180,7 +180,7 @@ constexpr int32_t SYSCALL_IPC_RECEIVE = 11;
 
 enum class SyscallStatus : int32_t {
     OK = 0,
-    ERROR = 1,
+    ERR = 1,
     UNSUPPORTED = 2,
     INVALID = 3
 };

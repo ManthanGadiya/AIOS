@@ -8,6 +8,7 @@ export type InterruptType = 'TIMER' | 'PAGE_FAULT' | 'SYSTEM_CALL' | 'IO_COMPLET
 export type InterruptStatus = 'PENDING' | 'SERVICING' | 'COMPLETED';
 export type DeviceState = 'IDLE' | 'BUSY';
 export type MutexState = 'LOCKED' | 'FREE';
+export type SemaphoreState = 'AVAILABLE' | 'WAITING';
 
 export interface CPUState {
   pc: number;
@@ -82,10 +83,13 @@ export interface InterruptEvent {
 }
 
 export interface IpcMessage {
-  timestamp: string;
-  from: string;
-  to: string;
-  message: string;
+  id: number;
+  senderPid: number;
+  receiverPid: number;
+  type: string;
+  payload: string;
+  timestamp: number;
+  channelId?: string;
 }
 
 export interface IODevice {
@@ -96,9 +100,88 @@ export interface IODevice {
 
 export interface Mutex {
   id: string;
-  state: MutexState;
-  owner: string | null;
-  waiting: string[]; // Process names waiting
+  locked: boolean;
+  ownerPid: number;
+  waiters: number[];
+  waiterCount: number;
+}
+
+export interface Semaphore {
+  id: string;
+  count: number;
+  waiters: number[];
+  waiterCount: number;
+}
+
+export interface IpcMessage {
+  id: number;
+  senderPid: number;
+  receiverPid: number;
+  type: string;
+  payload: string;
+  timestamp: number;
+  channelId?: string;
+}
+
+export interface IpcSendRequest {
+  senderPid: number;
+  receiverPid: number;
+  type: string;
+  payload: string;
+}
+
+export interface IpcReceiveRequest {
+  receiverPid: number;
+  blocking?: boolean;
+}
+
+export interface IpcSendResponse {
+  messageId: number;
+  success: boolean;
+  error?: string;
+}
+
+export interface IpcReceiveResponse {
+  success: boolean;
+  blocking: boolean;
+  message?: IpcMessage;
+}
+
+export interface SyncLockRequest {
+  mutexId: string;
+  pid: number;
+}
+
+export interface SyncUnlockRequest {
+  mutexId: string;
+  pid: number;
+}
+
+export interface SyncWaitRequest {
+  semaphoreId: string;
+  pid: number;
+}
+
+export interface SyncSignalRequest {
+  semaphoreId: string;
+}
+
+export interface SyncLockResponse {
+  success: boolean;
+}
+
+export interface SyncUnlockResponse {
+  success: boolean;
+  nextWaiter: number;
+}
+
+export interface SyncWaitResponse {
+  success: boolean;
+}
+
+export interface SyncSignalResponse {
+  success: boolean;
+  nextWaiter: number;
 }
 
 export interface SchedulerState {

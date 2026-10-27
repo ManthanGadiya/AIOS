@@ -11,6 +11,10 @@ import { ReadyQueue } from '../../components/ReadyQueue/ReadyQueue';
 import { EventLog } from '../../components/EventLog/EventLog';
 import { InterruptPanel } from '../../components/InterruptPanel/InterruptPanel';
 import { SchedulerPanel } from '../../components/SchedulerPanel/SchedulerPanel';
+import { IPCPanel } from '../../components/IPCPanel/IPCPanel';
+import { SyncPanel } from '../../components/SyncPanel/SyncPanel';
+import { AIAgentPanel } from '../../components/AIAgentPanel/AIAgentPanel';
+import { IOPanel } from '../../components/IOPanel/IOPanel';
 import { api } from '../../services/api';
 import { STAT_ICONS } from './statIcons';
 import type { SystemStatistics, Process, CPUState, MemoryFrame, PageTable, SchedulerState, InterruptEvent, EventLogEntry } from '../../types/os';
@@ -118,7 +122,6 @@ export function Dashboard({ connected = true }: DashboardProps) {
       </div>
 
       {/* Activity row: ready queue, scheduler+gantt, interrupts, event log */}
-      {/* (IPC panel returns with the Week 6 IPC manager) */}
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
         <div className="h-64 flex flex-col">
           <ReadyQueue
@@ -135,6 +138,26 @@ export function Dashboard({ connected = true }: DashboardProps) {
         </div>
         <div className="h-64 flex flex-col">
           <EventLog events={events} maxEvents={60} />
+        </div>
+      </div>
+
+      {/* IPC / Sync row - Week 6 */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className="h-64 flex flex-col">
+          <IPCPanel />
+        </div>
+        <div className="h-64 flex flex-col">
+          <SyncPanel />
+        </div>
+      </div>
+
+      {/* AI Agents / I/O row */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className="h-64 flex flex-col">
+          <AIAgentPanel />
+        </div>
+        <div className="h-64 flex flex-col">
+          <IOPanel />
         </div>
       </div>
     </div>

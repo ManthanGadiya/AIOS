@@ -146,7 +146,7 @@ std::string interruptTypeToString(InterruptType type) {
         case InterruptType::TIMER:        return "TIMER";
         case InterruptType::SYSTEM_CALL:  return "SYSTEM_CALL";
         case InterruptType::IO_COMPLETE:  return "IO_COMPLETE";
-        case InterruptType::ERROR:        return "ERROR";
+        case InterruptType::ERR:        return "ERR";
         case InterruptType::PAGE_FAULT:   return "PAGE_FAULT";
     }
     return "UNKNOWN";

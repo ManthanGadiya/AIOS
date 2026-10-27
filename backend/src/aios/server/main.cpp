@@ -169,6 +169,8 @@ int main(int argc, char* argv[]) {
     apiServer.setClock(clock.get());
     apiServer.setScheduler(scheduler.get());
     apiServer.setInterruptManager(interruptManager.get());
+    apiServer.setSynchronizationManager(syncManager.get());
+    apiServer.setIPCManager(ipcManager.get());
     apiServer.setRunFlag(&g_simRunning);
     apiServer.setResetHook([&]() {
         createDemoWorkload(*processManager, syncManager.get(), ipcManager.get());

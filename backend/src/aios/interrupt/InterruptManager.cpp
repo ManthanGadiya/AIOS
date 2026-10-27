@@ -11,10 +11,10 @@ namespace aios {
 
 int InterruptManager::priorityOf(InterruptType type) {
     // docs/05 section 19: lower value = higher priority. Order finalized
-    // during implementation: ERROR > PAGE_FAULT > SYSTEM_CALL > IO_COMPLETE >
+    // during implementation: ERR > PAGE_FAULT > SYSTEM_CALL > IO_COMPLETE >
     // TIMER. Changing the ordering here does not require touching dispatch().
     switch (type) {
-        case InterruptType::ERROR: return 10;
+        case InterruptType::ERR: return 10;
         case InterruptType::PAGE_FAULT: return 20;
         case InterruptType::SYSTEM_CALL: return 30;
         case InterruptType::IO_COMPLETE: return 40;
@@ -98,7 +98,7 @@ void InterruptManager::dispatch(const InterruptRequest& req) {
                 processes_->terminate(req.pid);
             }
         }
-    } else if (req.type == InterruptType::ERROR) {
+    } else if (req.type == InterruptType::ERR) {
         if (processes_ && req.pid != INVALID_PID) {
             processes_->markFailed(req.pid);
         }
