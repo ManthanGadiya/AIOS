@@ -163,7 +163,8 @@ std::string interruptTypeToString(InterruptType type);
 
 // ---------------------------------------------------------------------------
 // System calls (docs/05 section 4):
-//   1 READ, 2 WRITE, 3 ALLOCATE, 4 EXIT, 5 IPC_SEND, 6 IO_REQUEST
+//   1 READ, 2 WRITE, 3 ALLOCATE, 4 EXIT, 5 IPC_SEND, 6 IO_REQUEST,
+//   7 LOCK, 8 UNLOCK, 9 WAIT, 10 SIGNAL, 11 IPC_RECEIVE
 // ---------------------------------------------------------------------------
 constexpr int32_t SYSCALL_READ = 1;
 constexpr int32_t SYSCALL_WRITE = 2;
@@ -171,6 +172,11 @@ constexpr int32_t SYSCALL_ALLOCATE = 3;
 constexpr int32_t SYSCALL_EXIT = 4;
 constexpr int32_t SYSCALL_IPC_SEND = 5;
 constexpr int32_t SYSCALL_IO_REQUEST = 6;
+constexpr int32_t SYSCALL_LOCK = 7;
+constexpr int32_t SYSCALL_UNLOCK = 8;
+constexpr int32_t SYSCALL_WAIT = 9;
+constexpr int32_t SYSCALL_SIGNAL = 10;
+constexpr int32_t SYSCALL_IPC_RECEIVE = 11;
 
 enum class SyscallStatus : int32_t {
     OK = 0,
@@ -220,7 +226,27 @@ enum class EventType : int32_t {
     SCHEDULER_STARTED = 23,
     PROCESS_SELECTED = 24,
     PROCESS_PREEMPTED = 25,
-    TIME_QUANTUM_EXPIRED = 26
+    TIME_QUANTUM_EXPIRED = 26,
+    // Synchronization (docs/09 section 33)
+    MUTEX_CREATED = 27,
+    MUTEX_LOCKED = 28,
+    MUTEX_UNLOCKED = 29,
+    PROCESS_BLOCKED_ON_MUTEX = 30,
+    PROCESS_WAKEUP = 31,
+    SEMAPHORE_CREATED = 32,
+    SEMAPHORE_WAIT = 33,
+    SEMAPHORE_SIGNAL = 34,
+    DEADLOCK_DETECTED = 35,
+    SYNCHRONIZATION_ERROR = 36,
+    // IPC (docs/10 section 38)
+    IPC_CHANNEL_CREATED = 37,
+    IPC_SEND = 38,
+    IPC_RECEIVE = 39,
+    IPC_MESSAGE_QUEUED = 40,
+    IPC_MESSAGE_DELIVERED = 41,
+    IPC_QUEUE_FULL = 42,
+    IPC_PERMISSION_DENIED = 43,
+    IPC_ERROR = 44
 };
 
 std::string eventTypeToString(EventType type);

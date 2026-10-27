@@ -4,15 +4,17 @@ add_executable(aios_tests
     test_main.cpp
     test_smoke.cpp
     test_types.cpp
-    test_memory.cpp
-    test_loader.cpp
-    test_cpu.cpp
-    test_process.cpp
-    test_interrupt.cpp
     test_syscall.cpp
-    test_paging.cpp
     test_timer.cpp
+    test_process.cpp
+    test_sync_min.cpp
+    test_cpu.cpp
+    test_loader.cpp
+    test_memory.cpp
+    test_paging.cpp
+    test_interrupt.cpp
     test_scheduler.cpp
+    test_ipc.cpp
 )
 
 target_include_directories(aios_tests PRIVATE

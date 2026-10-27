@@ -5,9 +5,11 @@
 #include <aios/cpu/CPU.hpp>
 #include <aios/interrupt/InterruptManager.hpp>
 #include <aios/interrupt/SystemCallManager.hpp>
+#include <aios/ipc/IPCManager.hpp>
 #include <aios/memory/Memory.hpp>
 #include <aios/memory/MemoryManager.hpp>
 #include <aios/process/ProcessManager.hpp>
+#include <aios/sync/SynchronizationManager.hpp>
 
 #include <cstdint>
 #include <deque>
@@ -32,6 +34,8 @@ public:
     InterruptManager& interruptManager() { return interrupts_; }
     SystemCallManager& systemCallManager() { return syscalls_; }
     ProcessManager& processManager() { return processes_; }
+    SynchronizationManager& synchronizationManager() { return sync_; }
+    IPCManager& ipcManager() { return ipc_; }
 
     void setOutputStream(std::ostream* out);
     void setInputQueue(std::deque<int32_t> input);
@@ -53,6 +57,8 @@ private:
     ProcessManager processes_;
     InterruptManager interrupts_;
     CPU cpu_;
+    SynchronizationManager sync_;
+    IPCManager ipc_;
 
     std::ostream* output_ = nullptr;
     std::deque<int32_t> input_;

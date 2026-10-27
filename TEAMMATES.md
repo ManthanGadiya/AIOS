@@ -77,14 +77,14 @@ The project naturally divides into:
 
 # 4. Current Allocation — Full 5-Member Distribution
 
-> Retroactive credit: M1-M5 + M5-Scheduler + Mid-Review GUI (till 22 Aug 2026, 131 tests / 717 assertions) is credited below as past work so every member has done something. Future work balances Week 6-8 load ~20% each.
+> Retroactive credit: M1-M5 + M5-Scheduler + Mid-Review GUI + Week 6 (Sync + IPC) (till 27 Oct 2026, 174 tests / 914 assertions) is credited below as past work so every member has done something. Future work balances Week 7-8 load ~20% each.
 
-| Member | Role | Work Done Till Now (till 22 Aug) | Files Overseeing | Future Work In Hand (Week 6-8) |
+| Member | Role | Work Done Till Now (till 27 Oct) | Files Overseeing | Future Work In Hand (Week 7-8) |
 |---|---|---|---|---|
-| Manthan Gadiya |  Core OS Lead | M1/M2: CPU fetch-decode-execute (12 opcodes LOAD/STORE/ADD/SUB/MUL/DIV/JMP/JZ/READ/WRITE/SYSCALL/HALT), FLAGS, 1024-word flat RAM, SimulationClock, EventLog, ProgramLoader. M4: Interrupt priority ERROR > PAGE_FAULT > SYSTEM_CALL > IO_COMPLETE > TIMER, Timer quantum 4, nested-interrupt deferral, SystemCallManager (READ/WRITE/ALLOCATE/EXIT). | `backend/include/aios/cpu/CPU.hpp`, `backend/src/aios/cpu/CPU.cpp`, `backend/include/aios/interrupt/`, `backend/src/aios/interrupt/`, `backend/include/aios/core/`, `backend/src/aios/server/main.cpp` (simulation loop), `backend/include/aios/demo/Runner.hpp` | Lead Integration & Release: WebSocket live stream, OSState central wiring, Final Demo scenario docs/14 (3P+2A → PageFault → IPC → I/O → Checkpoint → Recover), full regression per docs/15_Testing.md, STATUS/TEAMMATES/README governance, Final Acceptance. |
-| Pragati Gupta | Memory & Process Manager | M3: MemoryManager (page tables, frame table, swap, demand paging, FIFO + dirty write-back, INVALID vs PAGE_FAULT). M5: PCB, ProcessType NORMAL/AI_AGENT, 6-state machine NEW/READY/RUNNING/WAITING/TERMINATED/FAILED, resource tracking (cpuTime, waitingTime, response, turnaround, contextSwitch), getProcessStatistics(). | `backend/include/aios/memory/`, `backend/src/aios/memory/`, `backend/include/aios/process/`, `backend/src/aios/process/`, `backend/tests/test_paging.cpp`, `test_memory.cpp`, `test_process.cpp`, frontend MemoryGrid + ProcessTable (memory/process display) | Week 7: Checkpoint memory restore (docs/12 §35), memory quota enforcement (§25), page-replacement tuning (FIFO → optional Clock), memory stats for dashboard. Docs 04, 06, 07 owner. |
-| Anvay Hande | Scheduling & Synchronization Engineer | M5-Scheduler: FCFS / RoundRobin / Priority, ready-order reconciliation, TIME_QUANTUM_EXPIRED, decision history + Gantt data, Timer → Scheduler hook via InterruptManager::setScheduler(). | `backend/include/aios/scheduling/Scheduler.hpp`, `backend/src/aios/scheduling/Scheduler.cpp`, `backend/include/aios/interrupt/Timer.hpp`, `backend/tests/test_scheduler.cpp`, `test_timer.cpp`, frontend SchedulerPanel + ReadyQueue (new Sync panel to be added) | Week 6: SynchronizationManager per docs/09 — Mutex/Semaphore, race-condition demo, deadlock detection, wait graph. Week 7: AI Adaptive Scheduler per docs/12 §15 (Score = Priority + Wait + Urgency − Cost) + explainability panel. Docs 08, 09, 12 §15 owner. |
-| Hari Jadhav | Communication & I/O Engineer | M1/M2 Infra: EventLog types 23-26 (scheduler events), OSState wiring, helped wire ApiServer core endpoints. Syscall stubs IPC_SEND / IO_REQUEST defined in types.hpp. | `backend/include/aios/core/types.hpp` (IPC/IO event + syscall IDs), future `backend/**/IPCManager.*`, `IOManager.*`, `Buffer.*`, `Spooler.*`, `backend/tests/test_ipc.cpp`, `test_io.cpp` (to be created), frontend IPC + I/O panels (to be created) | Week 6: IPC Manager per docs/10 — queues, SEND/RECEIVE blocking/non-blocking, permissions, capacity. I/O Manager per docs/11 — devices Disk/Printer/Keyboard/Network, buffers, spool queue, IO_COMPLETE interrupt. Docs 10, 11 + IPC/I/O panels owner. |
+| Manthan Gadiya |  Core OS Lead | M1/M2: CPU fetch-decode-execute (12 opcodes), FLAGS, 1024-word flat RAM, SimulationClock, EventLog, ProgramLoader. M4: Interrupt priority ERROR > PAGE_FAULT > SYSTEM_CALL > IO_COMPLETE > TIMER, Timer quantum 4, nested-interrupt deferral, SystemCallManager (READ/WRITE/ALLOCATE/EXIT). Mid-Review GUI: OSState central wiring, server main.cpp, simulation loop, demo workload (3P+2A). Week 6: Sync/IPC integration into OSState and server wiring. | `backend/include/aios/cpu/CPU.hpp`, `backend/src/aios/cpu/CPU.cpp`, `backend/include/aios/interrupt/`, `backend/src/aios/interrupt/`, `backend/include/aios/core/`, `backend/src/aios/server/main.cpp`, `backend/include/aios/demo/Runner.hpp` | Lead Integration & Release: WebSocket live stream, OSState central wiring, Final Demo scenario docs/14 (3P+2A → PageFault → IPC → I/O → Checkpoint → Recover), full regression per docs/15_Testing.md, STATUS/TEAMMATES/README governance, Final Acceptance. |
+| Pragati Gupta | Memory & Process Manager | M3: MemoryManager (page tables, frame table, swap, demand paging, FIFO + dirty write-back, INVALID vs PAGE_FAULT). M5: PCB, ProcessType NORMAL/AI_AGENT, 6-state machine NEW/READY/RUNNING/WAITING/TERMINATED/FAILED, resource tracking (cpuTime, waitingTime, response, turnaround, contextSwitch), getProcessStatistics(). | `backend/include/aios/memory/`, `backend/src/aios/memory/`, `backend/include/aios/process/`, `backend/src/aios/process/`, `backend/tests/test_paging.cpp`, `test_memory.cpp`, `test_process.cpp`, frontend MemoryGrid + ProcessTable | Week 7: Checkpoint memory restore (docs/12 §35), memory quota enforcement (§25), page-replacement tuning (FIFO → optional Clock), memory stats for dashboard. Docs 04, 06, 07 owner. |
+| Anvay Hande | Scheduling & Synchronization Engineer | M5-Scheduler: FCFS / RoundRobin / Priority, ready-order reconciliation, TIME_QUANTUM_EXPIRED, decision history + Gantt data, Timer → Scheduler hook. **Week 6: SynchronizationManager — Mutex/Semaphore, race-condition demo, deadlock detection (wait-for graph DFS), 21 T-SYNC tests.** | `backend/include/aios/scheduling/Scheduler.hpp`, `backend/src/aios/scheduling/Scheduler.cpp`, `backend/include/aios/interrupt/Timer.hpp`, `backend/include/aios/sync/`, `backend/src/aios/sync/`, `backend/tests/test_scheduler.cpp`, `test_sync.cpp`, frontend SchedulerPanel + Sync panel | Week 7: AI Adaptive Scheduler per docs/12 §15 (Score = Priority + Wait + Urgency − Cost) + explainability panel. Docs 08, 09, 12 §15 owner. |
+| Hari Jadhav | Communication & I/O Engineer | M1/M2 Infra: EventLog types 23-26, OSState wiring, ApiServer core endpoints. Syscall stubs IPC_SEND / IO_REQUEST. **Week 6: IPC Manager — MessageQueue, IPCManager, allow/deny permission lists, statistics, process cleanup, agent communication patterns, 22 T-IPC tests.** | `backend/include/aios/core/types.hpp` (IPC/IO event + syscall IDs), `backend/include/aios/ipc/`, `backend/src/aios/ipc/`, future `backend/**/IOManager.*`, `Buffer.*`, `Spooler.*`, `backend/tests/test_ipc.cpp`, `test_io.cpp` (to be created), frontend IPC + I/O panels | Week 7: I/O Manager per docs/11 — devices Disk/Printer/Keyboard/Network, buffers, spool queue, IO_COMPLETE interrupt. Docs 10, 11 + IPC/I/O panels owner. |
 | Pragati Jadhav | AI Agent & Frontend Lead | Mid-Review GUI: ApiServer /api/* + /health + POST /command, START/PAUSE/STOP/RESET/CHANGE_SCHEDULER, 10 cycles/s loop, port-guard 8081, React dashboard (CPU register strip, 16×4 frame grid, page-table toggle, process table, ready queue, event-log filters, interrupt panel, Scheduler Gantt). | `backend/src/aios/server/ApiServer.*`, `backend/include/aios/server/`, future `backend/**/AIAgentManager.*`, `CheckpointManager.*`, all of `frontend/src/*` (App, pages/Dashboard, components/, services/, types/), `backend/tests/test_agents.cpp` (to be created) | Week 7: AIAgentManager per docs/12 — Research/Coding agents, quotas (CPU/Mem/Token), tool permissions READ/SEARCH/WRITE_CODE, checkpoint CP-001, FAILED → RECOVERED. Week 7/8: Final GUI — AI agent cards, IPC flow A1→A2, I/O viz, charts, demo controls. Docs 12, 13, 14 owner. |
 
 ## 4A. Role Explanations — What Each Role Means
@@ -167,6 +167,28 @@ Next Recommended Step:
 ---
 
 # 8. Change Log
+
+## 2026-10-27
+
+* **Week 6 (Synchronization + IPC) Complete:**
+  * **Synchronization** (Anvay Hande): Mutex/Semaphore, SynchronizationManager, deadlock detection (wait-for graph DFS), race-condition demo, 21 test cases (T-SYNC-001..021)
+  * **IPC** (Hari Jadhav): MessageQueue, IPCManager, allow/deny permission lists, statistics, process cleanup, agent communication patterns, 22 test cases (T-IPC-001..022)
+  * **New Event Types** (12): MUTEX_CREATED/LOCKED/UNLOCKED, PROCESS_BLOCKED_ON_MUTEX/WAKEUP, SEMAPHORE_CREATED/WAIT/SIGNAL, DEADLOCK_DETECTED, SYNCHRONIZATION_ERROR, IPC_CHANNEL_CREATED, IPC_SEND/RECEIVE, IPC_MESSAGE_QUEUED/DELIVERED, IPC_QUEUE_FULL, IPC_PERMISSION_DENIED, IPC_ERROR
+  * **New System Calls** (5): SYSCALL_LOCK=7, UNLOCK=8, WAIT=9, SIGNAL=10, IPC_RECEIVE=11 (stubs)
+  * **Full Test Suite**: 174 test cases / 914 assertions (173 passing, 1 expectation mismatch T-IPC-017)
+
+* **Files Added/Modified:**
+  - `backend/include/aios/sync/Mutex.hpp`, `Semaphore.hpp`, `SynchronizationManager.hpp`
+  - `backend/src/aios/sync/SynchronizationManager.cpp`
+  - `backend/include/aios/ipc/MessageQueue.hpp`, `IPCManager.hpp`
+  - `backend/src/aios/ipc/IPCManager.cpp`
+  - `backend/include/aios/core/types.hpp` (event types, syscall numbers)
+  - `backend/include/aios/core/OSState.hpp` (sync/ipc accessors)
+  - `backend/src/aios/server/main.cpp` (sync/ipc wiring + demo workload)
+  - `backend/tests/test_sync.cpp`, `test_ipc.cpp`
+  - `backend/tests/CMakeLists.txt`
+
+* **Current Focus:** I/O Subsystem (Week 7) — Device, Buffer, Spooler, IOManager per docs/11
 
 ## 2026-09-26
 

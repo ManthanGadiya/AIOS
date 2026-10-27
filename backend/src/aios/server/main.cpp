@@ -5,10 +5,12 @@
 #include "aios/interrupt/InterruptManager.hpp"
 #include "aios/interrupt/SystemCallManager.hpp"
 #include "aios/interrupt/Timer.hpp"
+#include "aios/ipc/IPCManager.hpp"
 #include "aios/memory/Memory.hpp"
 #include "aios/memory/MemoryManager.hpp"
 #include "aios/process/ProcessManager.hpp"
 #include "aios/scheduling/Scheduler.hpp"
+#include "aios/sync/SynchronizationManager.hpp"
 #include "aios/server/ApiServer.hpp"
 
 #include <atomic>
@@ -45,7 +47,7 @@ static std::vector<int32_t> makeProgram(int instructions) {
 // P1 TextEditor, P2 Compiler, P3 MusicPlayer, A1 Research Agent, A2 Coding Agent.
 // AI agents are ordinary OS processes created via createAgentProcess
 // (docs/06 section 34); they never bypass the scheduler.
-static void createDemoWorkload(ProcessManager& pm) {
+static void createDemoWorkload(ProcessManager& pm, SynchronizationManager* sync, IPCManager* ipc) {
     const auto proc = makeProgram(200);
     const auto agent = makeProgram(150);
 
@@ -60,6 +62,23 @@ static void createDemoWorkload(ProcessManager& pm) {
     if (p3 != INVALID_PID) pm.admit(p3);
     if (a1 != INVALID_PID) pm.admit(a1);
     if (a2 != INVALID_PID) pm.admit(a2);
+
+    // Create demo synchronization objects (docs/09 sections 38, 42)
+    if (sync) {
+        sync->createMutex("M1");           // Protects shared counter
+        sync->createMutex("knowledge_bus"); // Protects AI knowledge bus
+        sync->createSemaphore("S1", 3);    // 3 I/O slots
+        std::cout << "[Server] Sync objects created: M1, knowledge_bus, S1(3)" << std::endl;
+    }
+
+    // Create demo IPC channels and permissions (docs/10 sections 27, 42)
+    if (ipc) {
+        ipc->createChannel(a1); // Research agent channel
+        ipc->createChannel(a2); // Coding agent channel
+        ipc->grantPermission(a1, a2); // Research -> Coding
+        ipc->grantPermission(a2, a1); // Coding -> Research
+        std::cout << "[Server] IPC channels created: Research->Coding, Coding->Research" << std::endl;
+    }
 
     std::cout << "[Server] Workload admitted: P1 TextEditor, P2 Compiler, "
                  "P3 MusicPlayer, A1 Research, A2 Coding" << std::endl;
@@ -91,6 +110,8 @@ int main(int argc, char* argv[]) {
     auto systemCallManager = std::make_unique<SystemCallManager>();
     auto timer = std::make_unique<Timer>();
     auto interruptManager = std::make_unique<InterruptManager>();
+    auto syncManager = std::make_unique<SynchronizationManager>();
+    auto ipcManager = std::make_unique<IPCManager>();
 
     // Wire components together
     processManager->setMemory(memory.get());
@@ -110,6 +131,15 @@ int main(int argc, char* argv[]) {
 
     systemCallManager->setEventLog(eventLog.get());
     systemCallManager->setProcessManager(processManager.get());
+    systemCallManager->setSynchronizationManager(syncManager.get());
+
+    syncManager->setEventLog(eventLog.get());
+    syncManager->setProcessManager(processManager.get());
+    syncManager->setClock(clock.get());
+
+    ipcManager->setEventLog(eventLog.get());
+    ipcManager->setProcessManager(processManager.get());
+    ipcManager->setClock(clock.get());
 
     interruptManager->setEventLog(eventLog.get());
     interruptManager->setSystemCallManager(systemCallManager.get());
@@ -141,10 +171,10 @@ int main(int argc, char* argv[]) {
     apiServer.setInterruptManager(interruptManager.get());
     apiServer.setRunFlag(&g_simRunning);
     apiServer.setResetHook([&]() {
-        createDemoWorkload(*processManager);
+        createDemoWorkload(*processManager, syncManager.get(), ipcManager.get());
     });
 
-    createDemoWorkload(*processManager);
+    createDemoWorkload(*processManager, syncManager.get(), ipcManager.get());
 
     // Refuse to start when something already answers on this port. Windows
     // socket semantics make bind() alone unreliable for detecting this, which

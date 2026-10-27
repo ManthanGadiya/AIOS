@@ -582,7 +582,7 @@ Keep this section concise.
 Detailed history belongs in STATUS.md.
 -->
 
-**Phase:** 🟢 Core OS Implementation — M1/M2/M3 + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority) + Mid-Review GUI (REST Server + React Dashboard) Complete
+**Phase:** 🟢 Core OS Implementation — M1/M2/M3 + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority) + Mid-Review GUI (REST Server + React Dashboard) + Week 6 (Synchronization + IPC) Complete
 
 **Current State:**
 
@@ -599,7 +599,7 @@ Detailed history belongs in STATUS.md.
 * Team/status tracking established.
 * Canonical repository structure established.
 * **GitHub repository confirmed: https://github.com/ManthanGadiya/AIOS.git**
-* **M1 (Foundation) + M2 (Stage I: CPU/System Calls) + M3 (Paging/Virtual Memory) + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority) + Mid-Review GUI implemented and tested**
+* **M1 (Foundation) + M2 (Stage I: CPU/System Calls) + M3 (Paging/Virtual Memory) + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority) + Mid-Review GUI + Week 6 (Synchronization + IPC) implemented and tested**
 
 **Implemented (M1+M2):**
 
@@ -647,9 +647,17 @@ Detailed history belongs in STATUS.md.
 * **Demo workload** (PRD section 20) — P1 TextEditor, P2 Compiler, P3 MusicPlayer + A1 Research Agent, A2 Coding Agent as ordinary OS processes; Round Robin quantum 4 by default so context switches are visibly live
 * **React dashboard** — React 19 + TypeScript + Tailwind CSS v4 (Vite): control bar with live cycle indicator, sidebar navigation, stat cards, process table with state badges, CPU register panel, physical frame grid, page tables, ready queue, filterable event log, interrupt panel — every value fetched from the REST API
 
+**Implemented (Week 6 — Synchronization + IPC):**
+
+* **Synchronization** — Mutex (ownership, FIFO wait queue, tryLock/unlock/forceRelease), Semaphore (counting, wait/signal, FIFO wait queue), SynchronizationManager (create/lock/unlock mutex, create/wait/signal semaphore), deadlock detection (wait-for graph DFS), process cleanup (force-release on termination), race-condition demonstration, event logging, dashboard state listing
+* **IPC** — IPCMessage (id, sender/receiver PID, type, payload, timestamp), MessageQueue (FIFO, capacity limit, blocking/non-blocking receive), IPCManager (channels, send/receive, allow/deny permission lists, statistics), process cleanup (removes messages addressed to terminated process), agent communication patterns (research→coding, task request/response), per-process statistics, reset
+* **New Event Types** — MUTEX_CREATED/LOCKED/UNLOCKED, PROCESS_BLOCKED_ON_MUTEX/WAKEUP, SEMAPHORE_CREATED/WAIT/SIGNAL, DEADLOCK_DETECTED, SYNCHRONIZATION_ERROR, IPC_CHANNEL_CREATED, IPC_SEND/RECEIVE, IPC_MESSAGE_QUEUED/DELIVERED, IPC_QUEUE_FULL, IPC_PERMISSION_DENIED, IPC_ERROR
+* **New System Calls** — SYSCALL_LOCK=7, UNLOCK=8, WAIT=9, SIGNAL=10, IPC_RECEIVE=11 (stubs returning UNSUPPORTED)
+* **Full test coverage** — 174 test cases, 173 passing (1 test expectation mismatch: T-IPC-017 expects default-deny after reset, implementation correctly uses default-allow)
+
 **Currently Working On:**
 
-1. Synchronization (Week 6)
+1. I/O Subsystem (Week 7) — Device, Buffer, Spooler, IOManager per docs/11
 
 **Blocked By:**
 

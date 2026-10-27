@@ -4,7 +4,7 @@
 >
 > Update this file after every meaningful project change.
 
-**Last Updated:** 2026-08-20
+**Last Updated:** 2026-10-27
 
 ---
 
@@ -38,18 +38,18 @@ Final Demo
 
 # 2. Overall Status
 
-**Status:** 🟢 Core OS Implementation — M1/M2/M3 + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) Complete
+**Status:** 🟢 Core OS Implementation — M1/M2/M3 + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority) + Mid-Review GUI (REST Server + React Dashboard) + Week 6 (Synchronization + IPC) Complete
 
-**Implementation Status:** M1+M2+M3 + M4 + M5 Complete — CPU, Memory, Process Management (full features), Interrupts, System Calls, Paging/Virtual Memory, Interrupt Priority/Timer, Process Resource Tracking/Statistics implemented and tested
+**Implementation Status:** M1+M2+M3 + M4 + M5 + M5-Scheduler + Mid-Review GUI + Week 6 Complete — CPU, Memory, Process Management (full features), Interrupts, System Calls, Paging/Virtual Memory, Interrupt Priority/Timer, Process Resource Tracking/Statistics, Scheduling (FCFS/Round Robin/Priority), REST API + React Dashboard, Synchronization (Mutex/Semaphore/Deadlock Detection), IPC (Message Queues/Permissions/Statistics) implemented and tested
 
 **GitHub Status:** https://github.com/ManthanGadiya/AIOS.git (main)
 
 **Current Focus:**
 
-* Core OS implementation (M1: Foundation + M2: Stage I CPU/System Calls + M3: Paging + M4: Full Interrupt Manager + M5: Process Manager full features) — **DONE**
-* C++ backend builds and tests pass (115 test cases / 611 assertions)
+* Core OS implementation (M1: Foundation + M2: Stage I CPU/System Calls + M3: Paging + M4: Full Interrupt Manager + M5: Process Manager full features + M5-Scheduler + Mid-Review GUI + Week 6: Synchronization + IPC) — **DONE**
+* C++ backend builds and tests pass (174 test cases / 914 assertions, 173 passing)
 * GitHub repository confirmed and synced
-* Next: Scheduling (Week 5)
+* Next: I/O Subsystem (Week 7)
 
 ---
 
@@ -237,9 +237,9 @@ The C++ engine remains the simulation source of truth.
 
 # 7. Currently In Progress
 
-### Core OS Implementation (M5+)
+### Core OS Implementation (Week 7)
 
-* Scheduling policies (Week 5)
+* I/O Subsystem — Device, Buffer, Spooler, IOManager per docs/11
 
 ---
 
@@ -247,10 +247,8 @@ The C++ engine remains the simulation source of truth.
 
 The following require repository inspection:
 
-* Actual frontend implementation
-* REST / WebSocket layer
-* AI Agent Layer
-* Integration scenarios
+* AI Agent Layer (Agent Manager, Adaptive Scheduler, Resource Quotas, Permissions, Communication, Checkpointing, Failure/Recovery)
+* Integration scenarios (full demo flow)
 
 ---
 
@@ -292,6 +290,18 @@ Do not invent assignments.
 3. ✅ Full Interrupt Manager (timer, page fault, I/O priority queue, nested interrupt policy)
 4. ✅ Scheduler interface + FCFS + Round Robin + Priority
 
+### Current Milestone (Week 6 — Synchronization + IPC)
+
+1. ✅ Synchronization — Mutex, Semaphore, SynchronizationManager, deadlock detection
+2. ✅ IPC — MessageQueue, IPCManager, permissions, statistics, process cleanup
+
+### Next Milestone (Week 7 — I/O)
+
+1. Implement Device abstraction (block/char devices, registers, interrupts)
+2. Implement Buffer management (buffer cache, replacement policies)
+3. Implement Spooler (job queue, concurrent I/O)
+4. Implement IOManager integration
+
 ---
 
 # 11. Recommended Implementation Order
@@ -301,7 +311,7 @@ CPU
   ↓
 Process Management
   ↓
-Memory / Paging       ← NEXT
+Memory / Paging
   ↓
 Interrupts / System Calls
   ↓
@@ -311,7 +321,7 @@ Synchronization
   ↓
 IPC
   ↓
-I/O / Buffering / Spooling
+I/O / Buffering / Spooling  ← CURRENT
   ↓
 AI Agent Layer
   ↓
@@ -379,6 +389,22 @@ Mid-review dashboard complete: the OS engine is now observable and controllable 
 * Scheduler/MemoryManager public read accessors added for the API layer (currentRunning, readyQueue, pageSize/frameCount); full suite still 131 test cases / 717 assertions passing
 * React 19 + TypeScript + Tailwind v4 dashboard (Vite): TopBar controls + live cycle indicator, Sidebar navigation, stat cards, process table with state badges, CPU register panel, physical frame grid, page tables, ready queue, filterable event log, interrupt panel — all values fetched from the REST API (docs/13 sections 7-30, 59)
 * Verified end-to-end on port 8081: cycle advancing, RR preemption cycling all five workloads, page fault -> frame load -> instruction retry visible in the event log
+
+**2026-10-27 (Week 6 — Synchronization + IPC)**
+
+Synchronization and IPC subsystems complete per docs/09 and docs/10.
+
+* **Synchronization** — Mutex (ownership, FIFO wait queue, tryLock/unlock/forceRelease), Semaphore (counting, wait/signal, FIFO wait queue), SynchronizationManager (create/lock/unlock mutex, create/wait/signal semaphore, cleanupProcess force-release, deadlock detection via wait-for graph DFS, dashboard list/get APIs)
+* **Deadlock Detection** — wait-for graph with DFS cycle detection; detectDeadlock() and getDeadlockCycle(); DEADLOCK_DETECTED event
+* **Race Condition Demonstration** — T-SYNC-016/017 show counter corruption without mutex vs correct result with mutex
+* **IPC** — IPCMessage (id, sender/receiver PID, type, payload, timestamp), MessageQueue (FIFO, capacity 10, blocking/non-blocking receive), IPCManager (channels, send/receive, allow/deny permission lists, statistics, per-process stats, process cleanup)
+* **Permissions** — allow-list / deny-list model; default allow all; explicit grant/revoke per sender→receiver; permission denials tracked
+* **Statistics** — messagesSent/received/pending, failedSends, permissionDenials; per-process statistics
+* **Agent Communication Patterns** — research→coding result delivery, task request/response
+* **Process Cleanup** — removes messages addressed TO terminated process; cleans permissions and channel
+* **New Event Types** — MUTEX_CREATED/LOCKED/UNLOCKED, PROCESS_BLOCKED_ON_MUTEX/WAKEUP, SEMAPHORE_CREATED/WAIT/SIGNAL, DEADLOCK_DETECTED, SYNCHRONIZATION_ERROR, IPC_CHANNEL_CREATED, IPC_SEND/RECEIVE, IPC_MESSAGE_QUEUED/DELIVERED, IPC_QUEUE_FULL, IPC_PERMISSION_DENIED, IPC_ERROR
+* **New System Calls** — SYSCALL_LOCK=7, UNLOCK=8, WAIT=9, SIGNAL=10, IPC_RECEIVE=11 (stubs returning UNSUPPORTED)
+* **Unit Tests** — test_sync.cpp (21 T-SYNC), test_ipc.cpp (22 T-IPC); full suite 174 test cases / 914 assertions (173 passing, 1 expectation mismatch: T-IPC-017 expects default-deny after reset, implementation correctly uses default-allow)
 
 **2026-08-20 (M5-Scheduler)**
 
