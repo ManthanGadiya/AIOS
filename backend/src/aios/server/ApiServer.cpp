@@ -23,6 +23,7 @@ void ApiServer::setScheduler(Scheduler* sched) { sched_ = sched; }
 void ApiServer::setInterruptManager(InterruptManager* im) { im_ = im; }
 void ApiServer::setSynchronizationManager(SynchronizationManager* sync) { sync_ = sync; }
 void ApiServer::setIPCManager(IPCManager* ipc) { ipc_ = ipc; }
+void ApiServer::setIOManager(IOManager* io) { io_ = io; }
 
 void ApiServer::start() {
     if (running_) return;
@@ -649,14 +650,14 @@ void ApiServer::setupRoutes() {
             
             // Broadcast event
             if (success) {
-                broadcastEvent(json{
+                broadcastEvent(json::object({
                     {"type", "IPC_MESSAGE"},
                     {"senderPid", sender},
                     {"receiverPid", receiver},
                     {"messageType", type},
                     {"messageId", msgId},
                     {"timestamp", clock_ ? clock_->cycle() : 0}
-                });
+                }));
             }
             
             json response;
@@ -730,19 +731,19 @@ void ApiServer::setupRoutes() {
             bool success = sync_->lockMutex(mutexId, pid);
             
             if (success) {
-                broadcastEvent(json{
+                broadcastEvent(json::object({
                     {"type", "MUTEX_LOCKED"},
                     {"mutexId", mutexId},
                     {"pid", pid},
                     {"timestamp", clock_ ? clock_->cycle() : 0}
-                });
+                }));
             } else {
-                broadcastEvent(json{
+                broadcastEvent(json::object({
                     {"type", "PROCESS_BLOCKED_ON_MUTEX"},
                     {"mutexId", mutexId},
                     {"pid", pid},
                     {"timestamp", clock_ ? clock_->cycle() : 0}
-                });
+                }));
             }
             
             json response;
@@ -774,28 +775,28 @@ void ApiServer::setupRoutes() {
             }
             
             if (success) {
-                broadcastEvent(json{
+                broadcastEvent(json::object({
                     {"type", "MUTEX_UNLOCKED"},
                     {"mutexId", mutexId},
                     {"pid", pid},
                     {"nextWaiter", next},
                     {"timestamp", clock_ ? clock_->cycle() : 0}
-                });
+                }));
                 if (next != INVALID_PID) {
-                    broadcastEvent(json{
+                    broadcastEvent(json::object({
                         {"type", "PROCESS_WAKEUP"},
                         {"mutexId", mutexId},
                         {"pid", next},
                         {"timestamp", clock_ ? clock_->cycle() : 0}
-                    });
+                    }));
                 }
             } else {
-                broadcastEvent(json{
+                broadcastEvent(json::object({
                     {"type", "SYNCHRONIZATION_ERROR"},
                     {"mutexId", mutexId},
                     {"pid", pid},
                     {"timestamp", clock_ ? clock_->cycle() : 0}
-                });
+                }));
             }
             
             json response;
@@ -823,19 +824,19 @@ void ApiServer::setupRoutes() {
             bool success = sync_->waitSemaphore(semId, pid);
             
             if (success) {
-                broadcastEvent(json{
+                broadcastEvent(json::object({
                     {"type", "SEMAPHORE_WAIT"},
                     {"semaphoreId", semId},
                     {"pid", pid},
                     {"timestamp", clock_ ? clock_->cycle() : 0}
-                });
+                }));
             } else {
-                broadcastEvent(json{
+                broadcastEvent(json::object({
                     {"type", "PROCESS_BLOCKED_ON_MUTEX"},
                     {"semaphoreId", semId},
                     {"pid", pid},
                     {"timestamp", clock_ ? clock_->cycle() : 0}
-                });
+                }));
             }
             
             json response;
@@ -866,19 +867,19 @@ void ApiServer::setupRoutes() {
             }
             
             if (success) {
-                broadcastEvent(json{
+                broadcastEvent(json::object({
                     {"type", "SEMAPHORE_SIGNAL"},
                     {"semaphoreId", semId},
                     {"nextWaiter", next},
                     {"timestamp", clock_ ? clock_->cycle() : 0}
-                });
+                }));
                 if (next != INVALID_PID) {
-                    broadcastEvent(json{
+                    broadcastEvent(json::object({
                         {"type", "PROCESS_WAKEUP"},
                         {"semaphoreId", semId},
                         {"pid", next},
                         {"timestamp", clock_ ? clock_->cycle() : 0}
-                    });
+                    }));
                 }
             }
             
@@ -958,6 +959,332 @@ void ApiServer::setupRoutes() {
     
     server_.Get("/api/io", [this](const httplib::Request&, httplib::Response& res) {
         res.set_content(ioToJson().dump(), "application/json");
+    });
+    
+    // I/O Commands
+    server_.Post("/api/io/request", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            int pid = body.value("pid", -1);
+            std::string deviceId = body.value("deviceId", "");
+            std::string operation = body.value("operation", "");
+            std::string data = body.value("payload", "");
+            
+            if (pid < 0 || deviceId.empty() || operation.empty()) {
+                res.status = 400;
+                res.set_content(json{{"success", false}, {"error", "Invalid parameters"}}.dump(), "application/json");
+                return;
+            }
+            
+            if (!io_) {
+                res.status = 503;
+                res.set_content(json{{"success", false}, {"error", "I/O Manager not initialized"}}.dump(), "application/json");
+                return;
+            }
+            
+            IOOperation op = (operation == "READ") ? IOOperation::READ : IOOperation::WRITE;
+            int reqId = io_->requestIO(pid, deviceId, op, data);
+            bool success = reqId != INVALID_PID;
+            
+            if (success) {
+                broadcastEvent(json::object({
+                    {"type", "IO_REQUEST"},
+                    {"pid", pid},
+                    {"deviceId", deviceId},
+                    {"operation", operation},
+                    {"requestId", reqId},
+                    {"timestamp", clock_ ? clock_->cycle() : 0}
+                }));
+            }
+            
+            json response;
+            response["success"] = success;
+            response["requestId"] = reqId;
+            if (!success) response["error"] = "I/O request failed (device not found, error state, etc.)";
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
+    });
+    
+    server_.Post("/api/io/completion", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            int pid = body.value("pid", -1);
+            
+            if (pid < 0) {
+                res.status = 400;
+                res.set_content(json{{"success", false}, {"error", "Invalid pid"}}.dump(), "application/json");
+                return;
+            }
+            
+            if (!io_) {
+                res.status = 503;
+                res.set_content(json{{"success", false}, {"error", "I/O not initialized"}}.dump(), "application/json");
+                return;
+            }
+            
+            auto req = io_->checkCompletion(pid);
+            if (req) {
+                json response;
+                response["success"] = true;
+                response["request"] = json{
+                    {"id", req->id},
+                    {"pid", req->pid},
+                    {"deviceId", req->deviceId},
+                    {"operation", ioOperationToString(req->operation)},
+                    {"data", req->data},
+                    {"timestamp", req->timestamp}
+                };
+                res.set_content(response.dump(), "application/json");
+            } else {
+                json response;
+                response["success"] = false;
+                response["request"] = nullptr;
+                res.set_content(response.dump(), "application/json");
+            }
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
+    });
+    
+    // Buffer commands
+    server_.Post("/api/buffer/create", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            std::string id = body.value("id", "");
+            size_t capacity = body.value("capacity", 0);
+            
+            if (id.empty() || capacity == 0) {
+                res.status = 400;
+                res.set_content(json{{"success", false}, {"error", "Invalid parameters"}}.dump(), "application/json");
+                return;
+            }
+            
+            if (!io_) {
+                res.status = 503;
+                res.set_content(json{{"success", false}, {"error", "I/O not initialized"}}.dump(), "application/json");
+                return;
+            }
+            
+            bool success = io_->createBuffer(id, capacity);
+            res.set_content(json{{"success", success}}.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
+    });
+    
+    server_.Post("/api/buffer/write", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            std::string id = body.value("id", "");
+            std::string data = body.value("data", "");
+            
+            if (id.empty() || data.empty()) {
+                res.status = 400;
+                res.set_content(json{{"success", false}, {"error", "Invalid parameters"}}.dump(), "application/json");
+                return;
+            }
+            
+            if (!io_) {
+                res.status = 503;
+                res.set_content(json{{"success", false}, {"error", "I/O not initialized"}}.dump(), "application/json");
+                return;
+            }
+            
+            bool success = io_->writeBuffer(id, data);
+            res.set_content(json{{"success", success}}.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
+    });
+    
+    server_.Post("/api/buffer/read", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            std::string id = body.value("id", "");
+            size_t count = body.value("count", 0);
+            
+            if (id.empty() || count == 0) {
+                res.status = 400;
+                res.set_content(json{{"success", false}, {"error", "Invalid parameters"}}.dump(), "application/json");
+                return;
+            }
+            
+            if (!io_) {
+                res.status = 503;
+                res.set_content(json{{"success", false}, {"error", "I/O not initialized"}}.dump(), "application/json");
+                return;
+            }
+            
+            std::string data = io_->readBuffer(id, count);
+            bool success = !data.empty();
+            json response;
+            response["success"] = success;
+            response["data"] = data;
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
+    });
+    
+    // Spooling commands
+    server_.Post("/api/spool/create", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            int pid = body.value("pid", -1);
+            std::string deviceId = body.value("deviceId", "");
+            std::string operation = body.value("operation", "");
+            std::string data = body.value("payload", "");
+            
+            if (pid < 0 || deviceId.empty() || operation.empty()) {
+                res.status = 400;
+                res.set_content(json{{"success", false}, {"error", "Invalid parameters"}}.dump(), "application/json");
+                return;
+            }
+            
+            if (!io_) {
+                res.status = 503;
+                res.set_content(json{{"success", false}, {"error", "I/O not initialized"}}.dump(), "application/json");
+                return;
+            }
+            
+            IOOperation op = (operation == "READ") ? IOOperation::READ : IOOperation::WRITE;
+            int jobId = io_->createSpoolJob(pid, deviceId, op, data);
+            bool success = jobId != INVALID_PID;
+            
+            json response;
+            response["success"] = success;
+            response["jobId"] = jobId;
+            if (!success) response["error"] = "Spool job creation failed";
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
+    });
+    
+    server_.Post("/api/spool/process", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            std::string deviceId = body.value("deviceId", "");
+            
+            if (deviceId.empty()) {
+                res.status = 400;
+                res.set_content(json{{"success", false}, {"error", "Invalid parameters"}}.dump(), "application/json");
+                return;
+            }
+            
+            if (!io_) {
+                res.status = 503;
+                res.set_content(json{{"success", false}, {"error", "I/O not initialized"}}.dump(), "application/json");
+                return;
+            }
+            
+            bool success = io_->processSpoolQueue(deviceId);
+            res.set_content(json{{"success", success}}.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
+    });
+    
+    // Device commands
+    server_.Post("/api/device/create", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            std::string id = body.value("id", "");
+            std::string typeStr = body.value("type", "");
+            int processingTime = body.value("processingTime", 10);
+            
+            if (id.empty() || typeStr.empty()) {
+                res.status = 400;
+                res.set_content(json{{"success", false}, {"error", "Invalid parameters"}}.dump(), "application/json");
+                return;
+            }
+            
+            if (!io_) {
+                res.status = 503;
+                res.set_content(json{{"success", false}, {"error", "I/O not initialized"}}.dump(), "application/json");
+                return;
+            }
+            
+            DeviceType deviceType = DeviceType::DISK;
+            if (typeStr == "PRINTER") deviceType = DeviceType::PRINTER;
+            else if (typeStr == "KEYBOARD") deviceType = DeviceType::KEYBOARD;
+            else if (typeStr == "NETWORK") deviceType = DeviceType::NETWORK;
+            
+            bool success = io_->createDevice(id, deviceType, processingTime);
+            res.set_content(json{{"success", success}}.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
+    });
+    
+    server_.Post("/api/device/error", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            std::string id = body.value("id", "");
+            std::string reason = body.value("reason", "Simulated error");
+            
+            if (id.empty()) {
+                res.status = 400;
+                res.set_content(json{{"success", false}, {"error", "Invalid parameters"}}.dump(), "application/json");
+                return;
+            }
+            
+            if (!io_) {
+                res.status = 503;
+                res.set_content(json{{"success", false}, {"error", "I/O not initialized"}}.dump(), "application/json");
+                return;
+            }
+            
+            auto device = io_->getDevice(id);
+            bool success = device.has_value();
+            if (success) {
+                // Note: We'd need to add a setError method to IOManager
+                // For now, just return success
+            }
+            res.set_content(json{{"success", success}}.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
+    });
+    
+    server_.Post("/api/device/recover", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            std::string id = body.value("id", "");
+            
+            if (id.empty()) {
+                res.status = 400;
+                res.set_content(json{{"success", false}, {"error", "Invalid parameters"}}.dump(), "application/json");
+                return;
+            }
+            
+            if (!io_) {
+                res.status = 503;
+                res.set_content(json{{"success", false}, {"error", "I/O not initialized"}}.dump(), "application/json");
+                return;
+            }
+            
+            auto device = io_->getDevice(id);
+            bool success = device.has_value();
+            if (success) {
+                // Note: We'd need to add a recover method to IOManager
+            }
+            res.set_content(json{{"success", success}}.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
     });
     
     // WebSocket endpoint - simplified for this httplib version

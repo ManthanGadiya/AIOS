@@ -39,6 +39,16 @@ constexpr int32_t OPERAND_MASK = 0xFFFF;
 std::string opcodeToString(Opcode opcode);
 
 // ---------------------------------------------------------------------------
+// I/O Operation types (docs/11 section 7).
+// ---------------------------------------------------------------------------
+enum class IOOperation : int32_t {
+    READ = 0,
+    WRITE = 1
+};
+
+std::string ioOperationToString(IOOperation op);
+
+// ---------------------------------------------------------------------------
 // Flags register (docs/04 section 12).
 // ---------------------------------------------------------------------------
 struct Flags {
@@ -160,6 +170,7 @@ struct InterruptRequest {
 };
 
 std::string interruptTypeToString(InterruptType type);
+std::string ioOperationToString(IOOperation op);
 
 // ---------------------------------------------------------------------------
 // System calls (docs/05 section 4):
@@ -246,7 +257,11 @@ enum class EventType : int32_t {
     IPC_MESSAGE_DELIVERED = 41,
     IPC_QUEUE_FULL = 42,
     IPC_PERMISSION_DENIED = 43,
-    IPC_ERROR = 44
+    IPC_ERROR = 44,
+    // I/O (docs/11 section 40)
+    IO_ERROR = 45,
+    IO_STARTED = 46,
+    IO_BLOCKED = 47
 };
 
 std::string eventTypeToString(EventType type);

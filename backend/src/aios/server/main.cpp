@@ -5,6 +5,7 @@
 #include "aios/interrupt/InterruptManager.hpp"
 #include "aios/interrupt/SystemCallManager.hpp"
 #include "aios/interrupt/Timer.hpp"
+#include "aios/io/IOManager.hpp"
 #include "aios/ipc/IPCManager.hpp"
 #include "aios/memory/Memory.hpp"
 #include "aios/memory/MemoryManager.hpp"
@@ -47,7 +48,7 @@ static std::vector<int32_t> makeProgram(int instructions) {
 // P1 TextEditor, P2 Compiler, P3 MusicPlayer, A1 Research Agent, A2 Coding Agent.
 // AI agents are ordinary OS processes created via createAgentProcess
 // (docs/06 section 34); they never bypass the scheduler.
-static void createDemoWorkload(ProcessManager& pm, SynchronizationManager* sync, IPCManager* ipc) {
+static void createDemoWorkload(ProcessManager& pm, SynchronizationManager* sync, IPCManager* ipc, IOManager* io) {
     const auto proc = makeProgram(200);
     const auto agent = makeProgram(150);
 
@@ -82,6 +83,20 @@ static void createDemoWorkload(ProcessManager& pm, SynchronizationManager* sync,
 
     std::cout << "[Server] Workload admitted: P1 TextEditor, P2 Compiler, "
                  "P3 MusicPlayer, A1 Research, A2 Coding" << std::endl;
+
+    // Create demo I/O devices (docs/11 sections 64-77)
+    if (io) {
+        io->createDevice("DISK", DeviceType::DISK, 5);      // 5 cycles per I/O
+        io->createDevice("PRINTER", DeviceType::PRINTER, 8); // 8 cycles per I/O
+        io->createDevice("KEYBOARD", DeviceType::KEYBOARD, 3); // 3 cycles per I/O
+        io->createDevice("NETWORK", DeviceType::NETWORK, 6);  // 6 cycles per I/O
+        std::cout << "[Server] I/O devices created: DISK, PRINTER, KEYBOARD, NETWORK" << std::endl;
+
+        // Create demo buffers
+        io->createBuffer("DISK_BUFFER", 64);
+        io->createBuffer("PRINTER_BUFFER", 128);
+        std::cout << "[Server] Buffers created: DISK_BUFFER(64), PRINTER_BUFFER(128)" << std::endl;
+    }
 }
 
 int main(int argc, char* argv[]) {
@@ -112,6 +127,7 @@ int main(int argc, char* argv[]) {
     auto interruptManager = std::make_unique<InterruptManager>();
     auto syncManager = std::make_unique<SynchronizationManager>();
     auto ipcManager = std::make_unique<IPCManager>();
+    auto ioManager = std::make_unique<IOManager>();
 
     // Wire components together
     processManager->setMemory(memory.get());
@@ -140,6 +156,10 @@ int main(int argc, char* argv[]) {
     ipcManager->setEventLog(eventLog.get());
     ipcManager->setProcessManager(processManager.get());
     ipcManager->setClock(clock.get());
+
+    ioManager->setEventLog(eventLog.get());
+    ioManager->setProcessManager(processManager.get());
+    ioManager->setClock(clock.get());
 
     interruptManager->setEventLog(eventLog.get());
     interruptManager->setSystemCallManager(systemCallManager.get());
@@ -171,12 +191,13 @@ int main(int argc, char* argv[]) {
     apiServer.setInterruptManager(interruptManager.get());
     apiServer.setSynchronizationManager(syncManager.get());
     apiServer.setIPCManager(ipcManager.get());
+    apiServer.setIOManager(ioManager.get());
     apiServer.setRunFlag(&g_simRunning);
     apiServer.setResetHook([&]() {
-        createDemoWorkload(*processManager, syncManager.get(), ipcManager.get());
+        createDemoWorkload(*processManager, syncManager.get(), ipcManager.get(), ioManager.get());
     });
 
-    createDemoWorkload(*processManager, syncManager.get(), ipcManager.get());
+    createDemoWorkload(*processManager, syncManager.get(), ipcManager.get(), ioManager.get());
 
     // Refuse to start when something already answers on this port. Windows
     // socket semantics make bind() alone unreliable for detecting this, which
@@ -229,6 +250,7 @@ int main(int argc, char* argv[]) {
 
             clock->tick();
             timer->tick();
+            ioManager->tick();
 
             // Service interrupts (timer -> RR preemption via the scheduler hook)
             interruptManager->serviceNextInterrupt();

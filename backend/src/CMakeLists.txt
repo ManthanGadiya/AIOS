@@ -10,6 +10,7 @@ add_library(aios_core STATIC
     aios/interrupt/Timer.cpp
     aios/sync/SynchronizationManager.cpp
     aios/ipc/IPCManager.cpp
+    aios/io/IOManager.cpp
     aios/server/ApiServer.cpp
 )
 
