@@ -123,40 +123,40 @@ export function Dashboard({ connected = true }: DashboardProps) {
 
       {/* Activity row: ready queue, scheduler+gantt, interrupts, event log */}
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
-        <div className="h-64 flex flex-col">
+        <div className="h-64 flex flex-col overflow-hidden">
           <ReadyQueue
             readyQueue={scheduler?.readyQueue ?? []}
             processes={allProcesses}
             runningPid={scheduler?.currentProcess ?? null}
           />
         </div>
-        <div className="h-64 flex flex-col">
+        <div className="h-64 flex flex-col overflow-hidden">
           <SchedulerPanel scheduler={scheduler} />
         </div>
-        <div className="h-64 flex flex-col">
+        <div className="h-64 flex flex-col overflow-hidden">
           <InterruptPanel interrupts={interrupts} />
         </div>
-        <div className="h-64 flex flex-col">
+        <div className="h-64 flex flex-col overflow-hidden">
           <EventLog events={events} maxEvents={60} />
         </div>
       </div>
 
       {/* IPC / Sync row - Week 6 */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <div className="h-64 flex flex-col">
+        <div className="h-64 flex flex-col overflow-hidden">
           <IPCPanel />
         </div>
-        <div className="h-64 flex flex-col">
+        <div className="h-64 flex flex-col overflow-hidden">
           <SyncPanel />
         </div>
       </div>
 
       {/* AI Agents / I/O row */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <div className="h-64 flex flex-col">
+        <div className="h-64 flex flex-col overflow-hidden">
           <AIAgentPanel />
         </div>
-        <div className="h-64 flex flex-col">
+        <div className="h-64 flex flex-col overflow-hidden">
           <IOPanel />
         </div>
       </div>

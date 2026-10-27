@@ -94,8 +94,8 @@ export function SyncPanel() {
   }, []);
 
   return (
-    <div className="bg-gray-800 rounded-lg p-4 h-full flex flex-col">
-      <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+    <div className="bg-gray-800 rounded-lg p-4 h-full flex flex-col overflow-y-auto">
+      <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 flex-shrink-0">
         <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2H8a2 2 0 01-2-2V7a2 2 0 012-2h8a2 2 0 012 2v2" />
         </svg>
@@ -103,7 +103,7 @@ export function SyncPanel() {
       </h3>
 
       {/* Mutexes */}
-      <div className="mb-6">
+      <div className="mb-6 flex-shrink-0">
         <h4 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
           <svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2H8a2 2 0 01-2-2V7a2 2 0 012-2h8a2 2 0 012 2v2" />
@@ -175,9 +175,9 @@ export function SyncPanel() {
       )}
 
       {/* Controls */}
-      <div className="space-y-4">
+      <div className="space-y-4 flex-shrink-0">
         {/* Lock Mutex */}
-        <div className="p-3 bg-gray-700 rounded border border-gray-600">
+        <div className="p-3 bg-gray-700 rounded border border-gray-600 flex-shrink-0">
           <h4 className="text-sm font-medium text-gray-300 mb-2">Lock Mutex</h4>
           <form onSubmit={handleLock} className="flex gap-2">
             <div className="flex-1">
@@ -196,7 +196,7 @@ export function SyncPanel() {
         </div>
 
         {/* Unlock Mutex */}
-        <div className="p-3 bg-gray-700 rounded border border-gray-600">
+        <div className="p-3 bg-gray-700 rounded border border-gray-600 flex-shrink-0">
           <h4 className="text-sm font-medium text-gray-300 mb-2">Unlock Mutex</h4>
           <form onSubmit={handleUnlock} className="flex gap-2">
             <div className="flex-1">
@@ -215,7 +215,7 @@ export function SyncPanel() {
         </div>
 
         {/* Wait Semaphore */}
-        <div className="p-3 bg-gray-700 rounded border border-gray-600">
+        <div className="p-3 bg-gray-700 rounded border border-gray-600 flex-shrink-0">
           <h4 className="text-sm font-medium text-gray-300 mb-2">Wait Semaphore</h4>
           <form onSubmit={handleWait} className="flex gap-2">
             <div className="flex-1">
@@ -233,7 +233,7 @@ export function SyncPanel() {
         </div>
 
         {/* Signal Semaphore */}
-        <div className="p-3 bg-gray-700 rounded border border-gray-600">
+        <div className="p-3 bg-gray-700 rounded border border-gray-600 flex-shrink-0">
           <h4 className="text-sm font-medium text-gray-300 mb-2">Signal Semaphore</h4>
           <form onSubmit={handleSignal} className="flex gap-2">
             <div className="flex-1">
@@ -248,7 +248,7 @@ export function SyncPanel() {
 
         {/* Result */}
         {lastResult && (
-          <div className="p-2 bg-gray-700 rounded border border-gray-600 text-xs text-gray-300">
+          <div className="p-2 bg-gray-700 rounded border border-gray-600 text-xs text-gray-300 flex-shrink-0">
             {lastResult}
           </div>
         )}
