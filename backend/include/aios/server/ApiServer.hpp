@@ -1,5 +1,6 @@
 #pragma once
 
+#include "aios/agent/AIAgentManager.hpp"
 #include "aios/core/EventLog.hpp"
 #include "aios/core/SimulationClock.hpp"
 #include "aios/cpu/CPU.hpp"
@@ -43,6 +44,7 @@ public:
     void setIPCManager(IPCManager* ipc);
     void setIOManager(IOManager* io);
     void setSystemCallManager(SystemCallManager* syscalls);
+    void setAIAgentManager(AIAgentManager* aiAgents);
 
     // Simulation run-state control: START/PAUSE/STOP write this flag and the
     // host simulation loop reads it each tick (docs/13 sections 8-11).
@@ -75,6 +77,9 @@ private:
     json mutexesToJson() const;
     json semaphoresToJson() const;
     json ioToJson() const;
+    json aiAgentToJson(const AgentMetadata* meta) const;
+    json aiAgentStatisticsToJson(const AgentStatistics& stats) const;
+    json checkpointToJson(const Checkpoint& cp) const;
 
     httplib::Server server_;
     int port_;
@@ -95,6 +100,7 @@ private:
     IPCManager* ipc_ = nullptr;
     IOManager* io_ = nullptr;
     SystemCallManager* syscalls_ = nullptr;
+    AIAgentManager* aiAgents_ = nullptr;
 
     // Simulation control shared with the host loop
     std::atomic<bool>* runFlag_ = nullptr;

@@ -7,6 +7,17 @@
 
 namespace aios {
 
+// Helper to create demo agent program
+static std::vector<int32_t> makeProgram(int instructions) {
+    std::vector<int32_t> prog;
+    prog.reserve(static_cast<size_t>(instructions) + 1);
+    for (int i = 0; i < instructions; ++i) {
+        prog.push_back(Instruction{Opcode::ADD, 1}.toWord());
+    }
+    prog.push_back(Instruction{Opcode::HALT, 0}.toWord());
+    return prog;
+}
+
 ApiServer::ApiServer(int port) : port_(port) {}
 
 ApiServer::~ApiServer() {
@@ -25,6 +36,7 @@ void ApiServer::setSynchronizationManager(SynchronizationManager* sync) { sync_ 
 void ApiServer::setIPCManager(IPCManager* ipc) { ipc_ = ipc; }
 void ApiServer::setIOManager(IOManager* io) { io_ = io; }
 void ApiServer::setSystemCallManager(SystemCallManager* syscalls) { syscalls_ = syscalls; }
+void ApiServer::setAIAgentManager(AIAgentManager* aiAgents) { aiAgents_ = aiAgents; }
 
 void ApiServer::start() {
     if (running_) return;
@@ -1341,10 +1353,299 @@ void ApiServer::setupRoutes() {
         }
         res.set_content(j.dump(), "application/json");
     });
+
+    // AI Agent endpoints
+    server_.Get("/api/agents/detail", [this](const httplib::Request&, httplib::Response& res) {
+        json arr = json::array();
+        if (aiAgents_) {
+            auto stats = aiAgents_->getAllAgentStatistics();
+            for (const auto& s : stats) {
+                arr.push_back(aiAgentStatisticsToJson(s));
+            }
+        }
+        res.set_content(arr.dump(), "application/json");
+    });
+
+    server_.Post("/api/agent/create", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            std::string name = body.value("name", "");
+            std::string typeStr = body.value("type", "RESEARCH");
+            int priority = body.value("priority", 1);
+            uint64_t tokenBudget = body.value("tokenBudget", 1000);
+            
+            if (name.empty()) {
+                res.status = 400;
+                res.set_content(json{{"success", false}, {"error", "Name is required"}}.dump(), "application/json");
+                return;
+            }
+
+            if (!aiAgents_) {
+                res.status = 503;
+                res.set_content(json{{"success", false}, {"error", "AI Agent Manager not initialized"}}.dump(), "application/json");
+                return;
+            }
+
+            AgentType type = (typeStr == "CODING") ? AgentType::CODING : AgentType::RESEARCH;
+            const auto agentProg = makeProgram(150);
+            int pid = aiAgents_->createAgent(name, type, priority, agentProg, 0, tokenBudget);
+            bool success = pid != INVALID_PID;
+
+            json response;
+            response["success"] = success;
+            response["pid"] = pid;
+            if (!success) response["error"] = "Failed to create agent";
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
+    });
+
+    server_.Post("/api/agent/checkpoint", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            std::string agentId = body.value("agentId", "");
+            std::string progress = body.value("progress", "Step completed");
+            
+            if (agentId.empty()) {
+                res.status = 400;
+                res.set_content(json{{"success", false}, {"error", "Agent ID is required"}}.dump(), "application/json");
+                return;
+            }
+
+            if (!aiAgents_) {
+                res.status = 503;
+                res.set_content(json{{"success", false}, {"error", "AI Agent Manager not initialized"}}.dump(), "application/json");
+                return;
+            }
+
+            std::string checkpointId = aiAgents_->createCheckpoint(agentId, progress);
+            bool success = !checkpointId.empty();
+
+            json response;
+            response["success"] = success;
+            response["checkpointId"] = checkpointId;
+            if (!success) response["error"] = "Failed to create checkpoint";
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
+    });
+
+    server_.Post("/api/agent/recover", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            std::string agentId = body.value("agentId", "");
+            std::string checkpointId = body.value("checkpointId", "");
+            
+            if (agentId.empty()) {
+                res.status = 400;
+                res.set_content(json{{"success", false}, {"error", "Agent ID is required"}}.dump(), "application/json");
+                return;
+            }
+
+            if (!aiAgents_) {
+                res.status = 503;
+                res.set_content(json{{"success", false}, {"error", "AI Agent Manager not initialized"}}.dump(), "application/json");
+                return;
+            }
+
+            bool success = aiAgents_->recoverAgent(agentId, checkpointId);
+
+            json response;
+            response["success"] = success;
+            if (!success) response["error"] = "Failed to recover agent (no checkpoint?)";
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
+    });
+
+    server_.Post("/api/agent/fail", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            std::string agentId = body.value("agentId", "");
+            std::string failureTypeStr = body.value("failureType", "SIMULATED_CRASH");
+            
+            if (agentId.empty()) {
+                res.status = 400;
+                res.set_content(json{{"success", false}, {"error", "Agent ID is required"}}.dump(), "application/json");
+                return;
+            }
+
+            if (!aiAgents_) {
+                res.status = 503;
+                res.set_content(json{{"success", false}, {"error", "AI Agent Manager not initialized"}}.dump(), "application/json");
+                return;
+            }
+
+            FailureType failureType = FailureType::SIMULATED_CRASH;
+            if (failureTypeStr == "RESOURCE_LIMIT") failureType = FailureType::RESOURCE_LIMIT;
+            else if (failureTypeStr == "EXECUTION_ERROR") failureType = FailureType::EXECUTION_ERROR;
+            else if (failureTypeStr == "TOOL_PERMISSION_ERROR") failureType = FailureType::TOOL_PERMISSION_ERROR;
+            else if (failureTypeStr == "MEMORY_ERROR") failureType = FailureType::MEMORY_ERROR;
+
+            bool success = aiAgents_->failAgent(agentId, failureType);
+
+            json response;
+            response["success"] = success;
+            if (!success) response["error"] = "Failed to fail agent";
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
+    });
+
+    server_.Post("/api/agent/tool-request", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            std::string agentId = body.value("agentId", "");
+            std::string toolStr = body.value("tool", "");
+            
+            if (agentId.empty() || toolStr.empty()) {
+                res.status = 400;
+                res.set_content(json{{"success", false}, {"error", "Agent ID and tool are required"}}.dump(), "application/json");
+                return;
+            }
+
+            if (!aiAgents_) {
+                res.status = 503;
+                res.set_content(json{{"success", false}, {"error", "AI Agent Manager not initialized"}}.dump(), "application/json");
+                return;
+            }
+
+            ToolPermission tool = ToolPermission::READ_DATA;
+            if (toolStr == "SEARCH") tool = ToolPermission::SEARCH;
+            else if (toolStr == "WRITE_CODE") tool = ToolPermission::WRITE_CODE;
+            else if (toolStr == "EXECUTE") tool = ToolPermission::EXECUTE;
+
+            bool allowed = aiAgents_->checkToolPermission(agentId, tool);
+
+            json response;
+            response["success"] = true;
+            response["allowed"] = allowed;
+            response["tool"] = toolStr;
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
+        }
+    });
+
+    server_.Get("/api/agent/checkpoints", [this](const httplib::Request& req, httplib::Response& res) {
+        std::string agentId = req.get_param_value("agentId");
+        json arr = json::array();
+        if (!agentId.empty() && aiAgents_) {
+            auto checkpoints = aiAgents_->getAgentCheckpoints(agentId);
+            for (const auto& cp : checkpoints) {
+                arr.push_back(checkpointToJson(cp));
+            }
+        }
+        res.set_content(arr.dump(), "application/json");
+    });
+
+    server_.Get("/api/agent/quota", [this](const httplib::Request& req, httplib::Response& res) {
+        std::string agentId = req.get_param_value("agentId");
+        json j;
+        if (!agentId.empty() && aiAgents_) {
+            auto meta = aiAgents_->getAgent(agentId);
+            if (meta) {
+                j["cpuQuota"] = meta->quota.cpuQuota;
+                j["cpuUsed"] = meta->quota.cpuUsed;
+                j["memoryQuota"] = meta->quota.memoryQuota;
+                j["memoryUsed"] = meta->quota.memoryUsed;
+                j["tokenBudget"] = meta->quota.tokenBudget;
+                j["tokenUsed"] = meta->quota.tokenUsed;
+                j["ioLimit"] = meta->quota.ioLimit;
+                j["ioUsed"] = meta->quota.ioUsed;
+            }
+        }
+        res.set_content(j.dump(), "application/json");
+    });
 }
 
 void ApiServer::setupWebSocket() {
     // WebSocket setup is handled in setupRoutes via /ws endpoint
+}
+
+nlohmann::json ApiServer::aiAgentToJson(const AgentMetadata* meta) const {
+    if (!meta) return nullptr;
+    
+    nlohmann::json j;
+    j["agentId"] = meta->agentId;
+    j["name"] = meta->name;
+    j["type"] = agentTypeToString(meta->type);
+    j["pid"] = meta->pid;
+    j["priority"] = meta->priority;
+    j["tokenBudget"] = meta->tokenBudget;
+    j["tokenUsed"] = meta->tokenUsed;
+    
+    nlohmann::json perms = nlohmann::json::object();
+    for (const auto& p : meta->permissions) {
+        perms[toolPermissionToString(p)] = true;
+    }
+    j["permissions"] = perms;
+    
+    j["checkpointId"] = meta->checkpointId;
+    j["agentState"] = agentStateToString(meta->agentState);
+    j["failureCount"] = meta->failureCount;
+    j["checkpointCount"] = meta->checkpointCount;
+    j["recoveryCount"] = meta->recoveryCount;
+    
+    return j;
+}
+
+nlohmann::json ApiServer::aiAgentStatisticsToJson(const AgentStatistics& stats) const {
+    nlohmann::json j;
+    j["pid"] = stats.pid;
+    j["agentId"] = stats.agentId;
+    j["name"] = stats.name;
+    j["type"] = agentTypeToString(stats.type);
+    j["processState"] = processStateToString(stats.processState);
+    j["agentState"] = agentStateToString(stats.agentState);
+    j["priority"] = stats.priority;
+    j["task"] = stats.task;
+    j["tokenUsage"] = nlohmann::json{{"used", stats.tokenUsed}, {"budget", stats.tokenBudget}};
+    j["permissions"] = stats.permissions;
+    j["cpuTime"] = stats.cpuTime;
+    j["memoryUsage"] = stats.memoryUsage;
+    j["ipcSent"] = stats.ipcSent;
+    j["ipcReceived"] = stats.ipcReceived;
+    j["checkpointCount"] = stats.checkpointCount;
+    j["failureCount"] = stats.failureCount;
+    j["recoveryCount"] = stats.recoveryCount;
+    j["lastCheckpointId"] = stats.lastCheckpointId;
+    return j;
+}
+
+nlohmann::json ApiServer::checkpointToJson(const Checkpoint& cp) const {
+    nlohmann::json j;
+    j["checkpointId"] = cp.checkpointId;
+    j["createdCycle"] = cp.createdCycle;
+    j["agentId"] = cp.agentId;
+    j["pid"] = cp.pid;
+    j["progress"] = cp.progress;
+    j["cpuContext"] = nlohmann::json{
+        {"pc", cp.cpuContext.pc},
+        {"acc", cp.cpuContext.acc},
+        {"mar", cp.cpuContext.mar},
+        {"mbr", cp.cpuContext.mbr},
+        {"ir", cp.cpuContext.ir.toWord()},
+        {"flags", nlohmann::json{
+            {"zero", cp.cpuContext.flags.zero},
+            {"negative", cp.cpuContext.flags.negative},
+            {"carry", cp.cpuContext.flags.carry},
+            {"overflow", cp.cpuContext.flags.overflow},
+            {"error", cp.cpuContext.flags.error}
+        }}
+    };
+    j["processState"] = processStateToString(cp.processState);
+    j["pageCount"] = cp.pageCount;
+    return j;
 }
 
 } // namespace aios

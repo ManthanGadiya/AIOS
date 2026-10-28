@@ -181,6 +181,90 @@ std::string eventTypeToString(EventType type) {
         case EventType::PROCESS_SELECTED:      return "PROCESS_SELECTED";
         case EventType::PROCESS_PREEMPTED:     return "PROCESS_PREEMPTED";
         case EventType::TIME_QUANTUM_EXPIRED:  return "TIME_QUANTUM_EXPIRED";
+        // Synchronization
+        case EventType::MUTEX_CREATED:       return "MUTEX_CREATED";
+        case EventType::MUTEX_LOCKED:        return "MUTEX_LOCKED";
+        case EventType::MUTEX_UNLOCKED:      return "MUTEX_UNLOCKED";
+        case EventType::PROCESS_BLOCKED_ON_MUTEX: return "PROCESS_BLOCKED_ON_MUTEX";
+        case EventType::PROCESS_WAKEUP:      return "PROCESS_WAKEUP";
+        case EventType::SEMAPHORE_CREATED:   return "SEMAPHORE_CREATED";
+        case EventType::SEMAPHORE_WAIT:      return "SEMAPHORE_WAIT";
+        case EventType::SEMAPHORE_SIGNAL:    return "SEMAPHORE_SIGNAL";
+        case EventType::DEADLOCK_DETECTED:   return "DEADLOCK_DETECTED";
+        case EventType::SYNCHRONIZATION_ERROR: return "SYNCHRONIZATION_ERROR";
+        // IPC
+        case EventType::IPC_CHANNEL_CREATED:  return "IPC_CHANNEL_CREATED";
+        case EventType::IPC_SEND:             return "IPC_SEND";
+        case EventType::IPC_RECEIVE:          return "IPC_RECEIVE";
+        case EventType::IPC_MESSAGE_QUEUED:   return "IPC_MESSAGE_QUEUED";
+        case EventType::IPC_MESSAGE_DELIVERED: return "IPC_MESSAGE_DELIVERED";
+        case EventType::IPC_QUEUE_FULL:       return "IPC_QUEUE_FULL";
+        case EventType::IPC_PERMISSION_DENIED: return "IPC_PERMISSION_DENIED";
+        case EventType::IPC_ERROR:            return "IPC_ERROR";
+        // I/O
+        case EventType::IO_ERROR:             return "IO_ERROR";
+        case EventType::IO_STARTED:           return "IO_STARTED";
+        case EventType::IO_BLOCKED:           return "IO_BLOCKED";
+        // AI Agent
+        case EventType::AGENT_CREATED:        return "AGENT_CREATED";
+        case EventType::AGENT_STARTED:        return "AGENT_STARTED";
+        case EventType::AGENT_CHECKPOINTED:   return "AGENT_CHECKPOINTED";
+        case EventType::AGENT_TOOL_REQUEST:   return "AGENT_TOOL_REQUEST";
+        case EventType::AGENT_TOOL_DENIED:    return "AGENT_TOOL_DENIED";
+        case EventType::AGENT_FAILURE:        return "AGENT_FAILURE";
+        case EventType::AGENT_RECOVERY_STARTED: return "AGENT_RECOVERY_STARTED";
+        case EventType::AGENT_RECOVERED:      return "AGENT_RECOVERED";
+        case EventType::AGENT_TERMINATED:     return "AGENT_TERMINATED";
+    }
+    return "UNKNOWN";
+}
+
+std::string agentTypeToString(AgentType type) {
+    switch (type) {
+        case AgentType::RESEARCH: return "RESEARCH";
+        case AgentType::CODING:   return "CODING";
+    }
+    return "UNKNOWN";
+}
+
+std::string agentStateToString(AgentState state) {
+    switch (state) {
+        case AgentState::ACTIVE:       return "ACTIVE";
+        case AgentState::WAITING:      return "WAITING";
+        case AgentState::CHECKPOINTED: return "CHECKPOINTED";
+        case AgentState::FAILED:       return "FAILED";
+        case AgentState::RECOVERED:    return "RECOVERED";
+    }
+    return "UNKNOWN";
+}
+
+std::string toolPermissionToString(ToolPermission perm) {
+    switch (perm) {
+        case ToolPermission::READ_DATA:  return "READ_DATA";
+        case ToolPermission::SEARCH:     return "SEARCH";
+        case ToolPermission::WRITE_CODE: return "WRITE_CODE";
+        case ToolPermission::EXECUTE:    return "EXECUTE";
+    }
+    return "UNKNOWN";
+}
+
+std::string resourceTypeToString(ResourceType type) {
+    switch (type) {
+        case ResourceType::CPU:     return "CPU";
+        case ResourceType::MEMORY:  return "MEMORY";
+        case ResourceType::TOKEN:   return "TOKEN";
+        case ResourceType::IO:      return "IO";
+    }
+    return "UNKNOWN";
+}
+
+std::string failureTypeToString(FailureType type) {
+    switch (type) {
+        case FailureType::RESOURCE_LIMIT:         return "RESOURCE_LIMIT";
+        case FailureType::SIMULATED_CRASH:        return "SIMULATED_CRASH";
+        case FailureType::EXECUTION_ERROR:        return "EXECUTION_ERROR";
+        case FailureType::TOOL_PERMISSION_ERROR:  return "TOOL_PERMISSION_ERROR";
+        case FailureType::MEMORY_ERROR:           return "MEMORY_ERROR";
     }
     return "UNKNOWN";
 }

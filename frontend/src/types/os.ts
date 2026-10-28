@@ -4,6 +4,10 @@
 export type ProcessState = 'NEW' | 'READY' | 'RUNNING' | 'WAITING' | 'TERMINATED' | 'FAILED';
 export type ProcessType = 'NORMAL' | 'AI_AGENT';
 export type SchedulingPolicy = 'FCFS' | 'ROUND_ROBIN' | 'PRIORITY' | 'AI_ADAPTIVE';
+export type AgentState = 'ACTIVE' | 'WAITING' | 'CHECKPOINTED' | 'FAILED' | 'RECOVERED';
+export type AgentType = 'RESEARCH' | 'CODING';
+export type ToolPermission = 'READ_DATA' | 'SEARCH' | 'WRITE_CODE' | 'EXECUTE';
+export type FailureType = 'RESOURCE_LIMIT' | 'SIMULATED_CRASH' | 'EXECUTION_ERROR' | 'TOOL_PERMISSION_ERROR' | 'MEMORY_ERROR';
 export type InterruptType = 'TIMER' | 'PAGE_FAULT' | 'SYSTEM_CALL' | 'IO_COMPLETE' | 'IPC_EVENT' | 'ERROR';
 export type InterruptStatus = 'PENDING' | 'SERVICING' | 'COMPLETED';
 export type DeviceState = 'IDLE' | 'BUSY';
@@ -51,6 +55,7 @@ export interface Agent extends Process {
   task: string;
   tokenUsage: { used: number; budget: number };
   permissions: Record<string, boolean>;
+  agentState?: AgentState;
 }
 
 export interface MemoryFrame {
@@ -264,6 +269,7 @@ export interface AgentStatistics {
   name: string;
   type: ProcessType;
   state: ProcessState;
+  agentState?: AgentState;
   priority: number;
   task: string;
   tokenUsage: { used: number; budget: number };
@@ -275,6 +281,32 @@ export interface AgentStatistics {
   checkpointCount: number;
   failureCount: number;
   recoveryCount: number;
+  lastCheckpointId?: string;
+}
+
+// Checkpoint type for AI Agent checkpoints
+export interface Checkpoint {
+  checkpointId: string;
+  createdCycle: number;
+  agentId: string;
+  pid: number;
+  progress: string;
+  cpuContext: {
+    pc: number;
+    acc: number;
+    mar: number;
+    mbr: number;
+    ir: number;
+    flags: {
+      zero: boolean;
+      negative: boolean;
+      carry: boolean;
+      overflow: boolean;
+      error: boolean;
+    };
+  };
+  processState: ProcessState;
+  pageCount: number;
 }
 
 // I/O state type
@@ -342,7 +374,7 @@ export interface MemoryState {
 }
 
 export interface SimulationControl {
-  command: 'START_SIMULATION' | 'PAUSE_SIMULATION' | 'STOP_SIMULATION' | 'RESET_SIMULATION' | 'CHANGE_SCHEDULER' | 'RUN_SCENARIO' | 'GENERATE_PAGE_FAULT' | 'SIMULATE_AGENT_FAILURE' | 'SET_CLOCK_SPEED' | 'SET_QUANTUM';
+  command: 'START_SIMULATION' | 'PAUSE_SIMULATION' | 'STOP_SIMULATION' | 'RESET_SIMULATION' | 'CHANGE_SCHEDULER' | 'RUN_SCENARIO' | 'GENERATE_PAGE_FAULT' | 'SIMULATE_AGENT_FAILURE' | 'SET_CLOCK_SPEED' | 'SET_QUANTUM' | 'CREATE_AGENT' | 'CHECKPOINT_AGENT' | 'RECOVER_AGENT' | 'FAIL_AGENT' | 'REQUEST_TOOL';
   payload?: Record<string, unknown>;
 }
 

@@ -38,18 +38,18 @@ Final Demo
 
 # 2. Overall Status
 
-**Status:** 🟢 Core OS Implementation — M1/M2/M3 + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority) + Mid-Review GUI (REST Server + React Dashboard) + Week 6 (Synchronization + IPC) + Week 7 (I/O Subsystem + Syscall Implementation) Complete
+**Status:** 🟢 Core OS Implementation — M1/M2/M3 + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority) + Mid-Review GUI (REST Server + React Dashboard) + Week 6 (Synchronization + IPC) + Week 7 (I/O Subsystem + Syscall Implementation) + Week 8 (AI Agent Layer) Complete
 
-**Implementation Status:** M1+M2+M3 + M4 + M5 + M5-Scheduler + Mid-Review GUI + Week 6 + Week 7 Complete — CPU, Memory, Process Management (full features), Interrupts, System Calls, Paging/Virtual Memory, Interrupt Priority/Timer, Process Resource Tracking/Statistics, Scheduling (FCFS/Round Robin/Priority), REST API + React Dashboard, Synchronization (Mutex/Semaphore/Deadlock Detection), IPC (Message Queues/Permissions/Statistics), I/O (Devices/Buffers/Spooler), I/O Syscalls (SYSCALL_IO_REQUEST) implemented and tested
+**Implementation Status:** M1+M2+M3 + M4 + M5 + M5-Scheduler + Mid-Review GUI + Week 6 + Week 7 + Week 8 Complete — CPU, Memory, Process Management (full features), Interrupts, System Calls, Paging/Virtual Memory, Interrupt Priority/Timer, Process Resource Tracking/Statistics, Scheduling (FCFS/Round Robin/Priority/AI_ADAPTIVE), REST API + React Dashboard, Synchronization (Mutex/Semaphore/Deadlock Detection), IPC (Message Queues/Permissions/Statistics), I/O (Devices/Buffers/Spooler), I/O Syscalls (SYSCALL_IO_REQUEST), AI Agent Layer (AgentManager, Adaptive Scheduler, Resource Quotas, Tool Permissions, Checkpoint/Recovery) implemented and tested
 
 **GitHub Status:** https://github.com/ManthanGadiya/AIOS.git (main)
 
 **Current Focus:**
 
-* Core OS implementation (M1: Foundation + M2: Stage I CPU/System Calls + M3: Paging + M4: Full Interrupt Manager + M5: Process Manager full features + M5-Scheduler + Mid-Review GUI + Week 6: Synchronization + IPC + Week 7: I/O Subsystem + Syscall Implementation) — **DONE**
+* Core OS implementation (M1: Foundation + M2: Stage I CPU/System Calls + M3: Paging + M4: Full Interrupt Manager + M5: Process Manager full features + M5-Scheduler + Mid-Review GUI + Week 6: Synchronization + IPC + Week 7: I/O Subsystem + Syscall Implementation + Week 8: AI Agent Layer) — **DONE**
 * C++ backend builds and tests pass (174 test cases / 914 assertions, 173 passing)
 * GitHub repository confirmed and synced
-* Next: AI Agent Layer (Week 8)
+* Next: Integration scenarios and WebSocket event streaming
 
 ---
 
@@ -237,9 +237,9 @@ The C++ engine remains the simulation source of truth.
 
 # 7. Currently In Progress
 
-### Core OS Implementation (Week 8)
+### Core OS Implementation (Week 8 — COMPLETE)
 
-* AI Agent Layer — Agent Manager, Adaptive Scheduler, Resource Quotas, Checkpoint/Recovery
+* AI Agent Layer — Agent Manager, Adaptive Scheduler, Resource Quotas, Tool Permissions, Checkpoint/Recovery — **DONE**
 
 ---
 
@@ -409,15 +409,65 @@ Synchronization and IPC subsystems complete per docs/09 and docs/10.
 * **New System Calls** — SYSCALL_LOCK=7, UNLOCK=8, WAIT=9, SIGNAL=10, IPC_RECEIVE=11 (stubs returning UNSUPPORTED)
 * **Unit Tests** — test_sync.cpp (21 T-SYNC), test_ipc.cpp (22 T-IPC); full suite 174 test cases / 914 assertions (173 passing, 1 expectation mismatch: T-IPC-017 expects default-deny after reset, implementation correctly uses default-allow)
 
+**2026-10-28 (Week 8 — AI Agent Layer)**
+
+AI Agent Layer complete per docs/12; the project's main novelty is now implemented.
+
+* **AIAgentManager** (docs/12 section 5, 50):
+  - Agent creation via `createAgent()` — wraps ProcessManager.createAgentProcess() + AI metadata
+  - Agent metadata: agentId, name, type (RESEARCH/CODING), PID, priority, tokenBudget, tool permissions, resource quotas
+  - Agent state machine: ACTIVE / WAITING / CHECKPOINTED / FAILED / RECOVERED (docs/12 section 13)
+  - Agent statistics: CPU time, memory usage, IPC sent/received, checkpoints, failures, recoveries
+  - Integration with Process Manager, Memory Manager, Synchronization Manager, IPC Manager, Clock, Event Log
+
+- **Resource Quotas** (docs/12 section 23-26):
+  - CPU quota (cycles/period), Memory quota (pages), Token budget, I/O limit
+  - `checkResourceQuota()` / `chargeResource()` for quota enforcement
+
+- **Tool Permissions** (docs/12 section 27-28):
+  - READ_DATA, SEARCH, WRITE_CODE, EXECUTE
+  - Default: Research=READ_DATA+SEARCH, Coding=READ_DATA+WRITE_CODE+EXECUTE
+  - `checkToolPermission()` with event logging (AGENT_TOOL_REQUEST / AGENT_TOOL_DENIED)
+  - Grant/revoke API
+
+- **Checkpointing** (docs/12 section 31):
+  - `createCheckpoint(agentId, progress)` — saves CPU context (PC/ACC/MAR/MBR/IR/FLAGS), process state, page count, progress string
+  - Checkpoint storage with unique IDs (CP-001, CP-002...)
+  - List checkpoints per agent
+
+- **Failure & Recovery** (docs/12 section 29-33):
+  - `failAgent(agentId, FailureType)` — SIMULATED_CRASH (default), RESOURCE_LIMIT, EXECUTION_ERROR, TOOL_PERMISSION_ERROR, MEMORY_ERROR
+  - On failure: releases mutexes, marks process FAILED, cleans IPC channel
+  - `recoverAgent(agentId, checkpointId?)` — restores CPU context, process state, validates memory mapping
+  - Deterministic IPC policy: pending messages discarded on recovery (docs/12 section 36)
+
+- **Adaptive Scheduler** (docs/12 section 15-16):
+  - `SchedulingPolicy::AI_ADAPTIVE` with heuristic scoring:
+    - Score = Priority×2 + Waiting×0.5 + Urgency(agent) − ResourceCost(cpuRatio+memRatio)×10
+    - Urgency: token pressure + WAITING state bonus for AI agents
+    - Explainable decisions — `SchedulingDecision.score` and `SchedulingDecision.scoreReason` fields
+  - Preempts running process when AI score exceeds by threshold (5.0)
+
+- **New Event Types** (docs/12 section 49):
+  - AGENT_CREATED, AGENT_STARTED, AGENT_CHECKPOINTED, AGENT_TOOL_REQUEST, AGENT_TOOL_DENIED
+  - AGENT_FAILURE, AGENT_RECOVERY_STARTED, AGENT_RECOVERED, AGENT_TERMINATED
+
+- **API Endpoints** (docs/13):
+  - GET /api/agents/detail — full AgentStatistics array
+  - POST /api/agent/create — {name, type, priority, tokenBudget} → {pid}
+  - POST /api/agent/checkpoint — {agentId, progress} → {checkpointId}
+  - POST /api/agent/recover — {agentId, checkpointId?}
+  - POST /api/agent/fail — {agentId, failureType?}
+  - POST /api/agent/tool-request — {agentId, tool} → {allowed}
+  - GET /api/agent/checkpoints?agentId=... — Checkpoint[]
+  - GET /api/agent/quota?agentId=... — {cpuQuota, cpuUsed, memoryQuota, memoryUsed, tokenBudget, tokenUsed, ioLimit, ioUsed}
+
+- **Frontend Enhancements**:
+  - AIAgentPanel: action buttons (Checkpoint, Fail, Recover), tool permission toggles, checkpoint list with per-checkpoint recovery
+  - Detailed statistics: CPU cycles, memory pages, IPC sent/received, checkpoint/failure/recovery counts
+  - Agent state badges: ACTIVE/WAITING/CHECKPOINTED/FAILED/RECOVERED
+
 **2026-10-28 (Week 7 — I/O Subsystem + Syscall Implementation)**
-
-I/O subsystem complete per docs/11; `SYSCALL_IO_REQUEST=6` moved from stub to full implementation.
-
-* **I/O Subsystem** — Device (DISK/PRINTER/KEYBOARD/NETWORK with processing time, FIFO queue, state machine), Buffer (EMPTY/PARTIAL/FULL, capacity-limited write/read), Spooler (job queue per device, concurrent I/O), IOManager (device/buffer/spooler management, `requestIO()`, `tick()`, process cleanup, statistics), new event types: IO_REQUEST/COMPLETE/STARTED/BLOCKED/ERROR
-* **System Call Implementation** — `SyscallRequest` extended with `payload` field; `SystemCallManager` payload storage (`setSyscallPayload()`), `handleIoRequest()` parses `"deviceId:operation:data"` payload (0=READ, 1=WRITE); calls `IOManager::requestIO()` and blocks process via `ProcessManager::blockProcess()`; on completion `IOManager::tick()` generates `IO_COMPLETE` interrupt → `ProcessManager::wakeProcess()`
-* **API Endpoint** — `POST /api/command` with `SYSCALL` command accepting `{pid, syscallNumber, payload}`
-* **Event Logging** — all syscalls now use 4-arg `EventLog::record(type, pid, cycle, detail)` with clock cycle
-* **Sync Syscalls Fixed** — LOCK/UNLOCK/WAIT/SIGNAL signatures corrected to match `SynchronizationManager`
 
 **2026-08-20 (M5-Scheduler)**
 
@@ -512,24 +562,26 @@ M1 (Foundation), M2 (Stage I: CPU/System Calls), M3 (Paging/Virtual Memory),
 M4 (Full Interrupt Manager), M5 (Process Manager Full Features),
 M5-Scheduler (FCFS / Round Robin / Priority), Mid-Review GUI
 (REST server + React dashboard), Week 6 (Synchronization + IPC),
-and Week 7 (I/O Subsystem + Syscall Implementation) are complete:
+Week 7 (I/O Subsystem + Syscall Implementation), and
+Week 8 (AI Agent Layer) are complete:
 - CPU Simulator with registers, fetch-decode-execute, full instruction set
 - Memory (flat RAM) + Memory Manager (page tables, frames, swap, FIFO replacement)
 - Process Manager (PCB, states, queues, context switch, resource tracking, statistics)
 - Interrupt Manager (priority queue, timer, nested policy, PAGE_FAULT dispatch) + System Call Manager
-- Scheduler (FCFS, Round Robin with quantum preemption, preemptive Priority, decision history)
+- Scheduler (FCFS, Round Robin with quantum preemption, preemptive Priority, AI Adaptive, decision history)
 - REST API server exposing the engine + simulation control (START/PAUSE/STOP/RESET)
 - React dashboard: stat cards, process table, CPU panel, frame grid, page tables,
   ready queue, event log, interrupt panel — live data on port 8081/5173
 - I/O Subsystem: Device (DISK/PRINTER/KEYBOARD/NETWORK), Buffer, Spooler, IOManager with tick()
 - I/O Syscall: SYSCALL_IO_REQUEST=6 with payload parsing, process blocking, interrupt-driven completion
+- AI Agent Layer: AgentManager (createAgent, checkpoint/failure/recovery), Adaptive Scheduler (heuristic scoring, explainable decisions), Resource Quotas (CPU, Memory, Token Budget, I/O), Tool Permissions (READ_DATA, SEARCH, WRITE_CODE, EXECUTE)
 - All unit tests passing (174 test cases), CMake + MinGW build verified
 
 The architecture, OS subsystems, AI-agent layer, GUI direction,
 demo scenarios and testing strategy have been defined.
 
 Next:
-1. AI Agent Layer (Week 8)
+1. Integration scenarios and WebSocket event streaming
 ```
 
 ---

@@ -11,6 +11,7 @@
 namespace aios {
 
 class ProcessManager;
+class AIAgentManager;
 class SimulationClock;
 
 // Scheduling policy selected for a run (docs/08 sections 3 and 7-13). Only one
@@ -19,7 +20,8 @@ class SimulationClock;
 enum class SchedulingPolicy : int32_t {
     FCFS = 0,        // first-come first-served, non-preemptive (docs/08 section 7)
     ROUND_ROBIN = 1, // time-sliced with a quantum, preemptive (docs/08 sections 8-10)
-    PRIORITY = 2     // larger value = higher priority, preemptive (docs/08 sections 11-13)
+    PRIORITY = 2,    // larger value = higher priority, preemptive (docs/08 sections 11-13)
+    AI_ADAPTIVE = 3  // AI adaptive scheduling with heuristic scoring (docs/12 section 15)
 };
 
 std::string schedulingPolicyToString(SchedulingPolicy policy);
@@ -32,6 +34,8 @@ struct SchedulingDecision {
     int selectedPid = INVALID_PID;
     int preemptedPid = INVALID_PID;
     std::string reason;
+    double score = 0.0;         // AI adaptive score
+    std::string scoreReason;    // Explainable scheduling reason
 };
 
 // ---------------------------------------------------------------------------
@@ -52,6 +56,7 @@ public:
     Scheduler() = default;
 
     void setProcessManager(ProcessManager* pm) { processes_ = pm; }
+    void setAIAgentManager(AIAgentManager* aiAgents) { aiAgents_ = aiAgents; }
     void setEventLog(EventLog* log) { eventLog_ = log; }
     void setClock(SimulationClock* clock) { clock_ = clock; }
 
@@ -93,7 +98,9 @@ private:
     void reconcile();   // sync the persistent ready order with the PM READY set
     int pickReady();    // front of the reconciled order (FCFS / Round Robin)
     int pickHighestPriority() const; // best READY process (PRIORITY)
-    void dispatchSelected(int pid, int preempted, const std::string& reason);
+    int pickAIAdaptive(); // AI adaptive scheduling with heuristic scoring
+    double calculateAIScore(int pid) const; // Score = Priority + Waiting + Urgency - ResourceCost
+    void dispatchSelected(int pid, int preempted, const std::string& reason, double score = 0.0, const std::string& scoreReason = "");
     void record(EventType type, int pid, const std::string& detail);
 
     SchedulingPolicy policy_ = SchedulingPolicy::FCFS;
@@ -103,6 +110,7 @@ private:
     uint64_t contextSwitchCount_ = 0;
 
     ProcessManager* processes_ = nullptr;
+    AIAgentManager* aiAgents_ = nullptr;
     EventLog* eventLog_ = nullptr;
     SimulationClock* clock_ = nullptr;
 };

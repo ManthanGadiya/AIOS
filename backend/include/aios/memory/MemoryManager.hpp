@@ -69,6 +69,10 @@ public:
     // targets in paged mode, where logical space may exceed physical RAM.
     bool isValidLogicalAddress(int pid, uint32_t logicalAddress) const;
 
+    // AI Agent Layer support (docs/12)
+    uint32_t getProcessMemoryUsage(int pid) const;  // pages currently allocated
+    uint32_t getProcessPageCount(int pid) const;    // valid pages in page table
+
     MemoryStatistics getStatistics() const;
 
     void reset();

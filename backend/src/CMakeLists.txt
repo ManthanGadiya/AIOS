@@ -11,6 +11,7 @@ add_library(aios_core STATIC
     aios/sync/SynchronizationManager.cpp
     aios/ipc/IPCManager.cpp
     aios/io/IOManager.cpp
+    aios/agent/AIAgentManager.cpp
     aios/server/ApiServer.cpp
 )
 

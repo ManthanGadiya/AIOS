@@ -165,6 +165,35 @@ bool MemoryManager::isValidLogicalAddress(int pid, uint32_t logicalAddress) cons
     return page < pt->pageCount && pt->entries[page].valid;
 }
 
+// AI Agent Layer support (docs/12)
+uint32_t MemoryManager::getProcessMemoryUsage(int pid) const {
+    const PageTable* pt = getPageTable(pid);
+    if (!pt) {
+        return 0;
+    }
+    uint32_t count = 0;
+    for (const auto& entry : pt->entries) {
+        if (entry.present) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+uint32_t MemoryManager::getProcessPageCount(int pid) const {
+    const PageTable* pt = getPageTable(pid);
+    if (!pt) {
+        return 0;
+    }
+    uint32_t count = 0;
+    for (const auto& entry : pt->entries) {
+        if (entry.valid) {
+            ++count;
+        }
+    }
+    return count;
+}
+
 MemoryStatistics MemoryManager::getStatistics() const {
     MemoryStatistics stats;
     stats.pageSize = pageSize_;

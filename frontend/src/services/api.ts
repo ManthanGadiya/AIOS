@@ -1,7 +1,13 @@
 // API Layer - REST communication with C++ backend
 // Per docs/13_GUI_Architecture.md sections 51-53, 56
 
-import type { SimulationControl, SystemStatistics, Process, Agent, CPUState, MemoryFrame, PageTable, SchedulerState, InterruptEvent, EventLogEntry, Mutex, Semaphore, IpcSendRequest, IpcReceiveRequest, IpcSendResponse, IpcReceiveResponse, SyncLockRequest, SyncUnlockRequest, SyncWaitRequest, SyncSignalRequest, SyncLockResponse, SyncUnlockResponse, SyncWaitResponse, SyncSignalResponse, ApiResponse, WSMessage } from '../types/os';
+import type { 
+  SimulationControl, SystemStatistics, Process, Agent, CPUState, MemoryFrame, PageTable, 
+  SchedulerState, InterruptEvent, EventLogEntry, Mutex, Semaphore, IpcSendRequest, 
+  IpcReceiveRequest, IpcSendResponse, IpcReceiveResponse, SyncLockRequest, SyncUnlockRequest, 
+  SyncWaitRequest, SyncSignalRequest, SyncLockResponse, SyncUnlockResponse, SyncWaitResponse, 
+  SyncSignalResponse, ApiResponse, WSMessage, AgentStatistics, Checkpoint 
+} from '../types/os';
 
 // Type exports
 export type { SimulationControl } from '../types/os';
@@ -174,6 +180,54 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(request),
     });
+  }
+
+  // AI Agent Operations
+  getAgentDetails() {
+    return this.request<AgentStatistics[]>('/agents/detail');
+  }
+
+  createAgent(name: string, type: 'RESEARCH' | 'CODING', priority: number, tokenBudget: number) {
+    return this.request<{ success: boolean; pid: number; error?: string }>('/agent/create', {
+      method: 'POST',
+      body: JSON.stringify({ name, type, priority, tokenBudget }),
+    });
+  }
+
+  createCheckpoint(agentId: string, progress: string) {
+    return this.request<{ success: boolean; checkpointId: string; error?: string }>('/agent/checkpoint', {
+      method: 'POST',
+      body: JSON.stringify({ agentId, progress }),
+    });
+  }
+
+  recoverAgent(agentId: string, checkpointId?: string) {
+    return this.request<{ success: boolean; error?: string }>('/agent/recover', {
+      method: 'POST',
+      body: JSON.stringify({ agentId, checkpointId: checkpointId || '' }),
+    });
+  }
+
+  failAgent(agentId: string, failureType: string = 'SIMULATED_CRASH') {
+    return this.request<{ success: boolean; error?: string }>('/agent/fail', {
+      method: 'POST',
+      body: JSON.stringify({ agentId, failureType }),
+    });
+  }
+
+  requestToolPermission(agentId: string, tool: string) {
+    return this.request<{ success: boolean; allowed: boolean; tool: string }>('/agent/tool-request', {
+      method: 'POST',
+      body: JSON.stringify({ agentId, tool }),
+    });
+  }
+
+  getAgentCheckpoints(agentId: string) {
+    return this.request<Checkpoint[]>(`/agent/checkpoints?agentId=${encodeURIComponent(agentId)}`);
+  }
+
+  getAgentQuota(agentId: string) {
+    return this.request<any>(`/agent/quota?agentId=${encodeURIComponent(agentId)}`);
   }
 }
 

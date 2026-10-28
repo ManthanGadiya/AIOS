@@ -262,7 +262,17 @@ enum class EventType : int32_t {
     // I/O (docs/11 section 40)
     IO_ERROR = 45,
     IO_STARTED = 46,
-    IO_BLOCKED = 47
+    IO_BLOCKED = 47,
+    // AI Agent Layer (docs/12 section 49)
+    AGENT_CREATED = 48,
+    AGENT_STARTED = 49,
+    AGENT_CHECKPOINTED = 50,
+    AGENT_TOOL_REQUEST = 51,
+    AGENT_TOOL_DENIED = 52,
+    AGENT_FAILURE = 53,
+    AGENT_RECOVERY_STARTED = 54,
+    AGENT_RECOVERED = 55,
+    AGENT_TERMINATED = 56
 };
 
 std::string eventTypeToString(EventType type);
@@ -350,6 +360,132 @@ struct MemoryStatistics {
     uint64_t pageReplacementCount = 0;
     uint64_t swapWords = 0; // words currently held in simulated swap
     std::map<int, uint64_t> perProcessFaults;
+};
+
+// ---------------------------------------------------------------------------
+// AI Agent Layer (docs/12)
+// ---------------------------------------------------------------------------
+
+// AI Agent types (docs/12 section 7)
+enum class AgentType : int32_t {
+    RESEARCH = 0,
+    CODING = 1
+};
+
+std::string agentTypeToString(AgentType type);
+
+// AI Agent internal state (docs/12 section 13)
+enum class AgentState : int32_t {
+    ACTIVE = 0,        // Running normally
+    WAITING = 1,       // Waiting for IPC/I/O/sync
+    CHECKPOINTED = 2,  // Checkpoint created, ready for recovery
+    FAILED = 3,        // Simulated failure
+    RECOVERED = 4      // Restored from checkpoint, going to READY
+};
+
+std::string agentStateToString(AgentState state);
+
+// Tool permissions (docs/12 section 27)
+enum class ToolPermission : int32_t {
+    READ_DATA = 0,
+    SEARCH = 1,
+    WRITE_CODE = 2,
+    EXECUTE = 3
+};
+
+std::string toolPermissionToString(ToolPermission perm);
+
+// Resource types for quota tracking (docs/12 section 23)
+enum class ResourceType : int32_t {
+    CPU = 0,
+    MEMORY = 1,
+    TOKEN = 2,
+    IO = 3
+};
+
+std::string resourceTypeToString(ResourceType type);
+
+// Failure types (docs/12 section 30)
+enum class FailureType : int32_t {
+    RESOURCE_LIMIT = 0,
+    SIMULATED_CRASH = 1,
+    EXECUTION_ERROR = 2,
+    TOOL_PERMISSION_ERROR = 3,
+    MEMORY_ERROR = 4
+};
+
+std::string failureTypeToString(FailureType type);
+
+// Resource quotas (docs/12 section 23)
+struct ResourceQuota {
+    uint64_t cpuQuota = 0;       // Maximum CPU cycles per period
+    uint64_t cpuUsed = 0;        // Cycles used in current period
+    uint32_t memoryQuota = 0;    // Maximum pages
+    uint32_t memoryUsed = 0;     // Pages currently allocated
+    uint64_t tokenBudget = 0;    // Maximum tokens
+    uint64_t tokenUsed = 0;      // Tokens consumed
+    uint64_t ioLimit = 0;        // Maximum I/O operations
+    uint64_t ioUsed = 0;         // I/O operations used
+};
+
+// Checkpoint data (docs/12 section 31)
+struct Checkpoint {
+    std::string checkpointId;
+    uint64_t createdCycle = 0;
+    std::string agentId;
+    int pid = INVALID_PID;
+    std::string progress;        // e.g., "Step 4"
+    CpuRegisters cpuContext;     // PC, ACC, MAR, MBR, IR, FLAGS
+    ProcessState processState = ProcessState::NEW;
+    // Memory references are tracked via page table - we store pageCount for validation
+    uint32_t pageCount = 0;
+};
+
+// Agent metadata (docs/12 section 12)
+struct AgentMetadata {
+    std::string agentId;         // e.g., "AGENT-001"
+    std::string name;            // e.g., "Research Agent"
+    AgentType type = AgentType::RESEARCH;
+    int pid = INVALID_PID;
+    int priority = 0;
+    uint64_t tokenBudget = 0;
+    uint64_t tokenUsed = 0;
+    ResourceQuota quota;
+    std::vector<ToolPermission> permissions;
+    std::string checkpointId;    // Latest checkpoint ID
+    AgentState agentState = AgentState::ACTIVE;
+    FailureType lastFailure = FailureType::SIMULATED_CRASH;
+    uint64_t checkpointCount = 0;
+    uint64_t failureCount = 0;
+    uint64_t recoveryCount = 0;
+    uint64_t cpuCyclesUsed = 0;
+    uint64_t ipcSent = 0;
+    uint64_t ipcReceived = 0;
+    uint64_t toolRequests = 0;
+    uint64_t toolDenials = 0;
+};
+
+// Agent statistics for dashboard (docs/12 section 39)
+struct AgentStatistics {
+    int pid = INVALID_PID;
+    std::string agentId;
+    std::string name;
+    AgentType type = AgentType::RESEARCH;
+    ProcessState processState = ProcessState::NEW;
+    AgentState agentState = AgentState::ACTIVE;
+    int priority = 0;
+    std::string task;
+    uint64_t tokenUsed = 0;
+    uint64_t tokenBudget = 0;
+    std::map<std::string, bool> permissions;
+    uint64_t cpuTime = 0;
+    uint32_t memoryUsage = 0;
+    uint64_t ipcSent = 0;
+    uint64_t ipcReceived = 0;
+    uint64_t checkpointCount = 0;
+    uint64_t failureCount = 0;
+    uint64_t recoveryCount = 0;
+    std::string lastCheckpointId;
 };
 
 } // namespace aios

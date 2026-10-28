@@ -582,7 +582,7 @@ Keep this section concise.
 Detailed history belongs in STATUS.md.
 -->
 
-**Phase:** 🟢 Core OS Implementation — M1/M2/M3 + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority) + Mid-Review GUI (REST Server + React Dashboard) + Week 6 (Synchronization + IPC) + Week 7 (I/O Subsystem + Syscall Implementation) Complete
+**Phase:** 🟢 Core OS Implementation — M1/M2/M3 + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority / AI_ADAPTIVE) + Mid-Review GUI (REST Server + React Dashboard) + Week 6 (Synchronization + IPC) + Week 7 (I/O Subsystem + Syscall Implementation) + Week 8 (AI Agent Layer) Complete
 
 **Current State:**
 
@@ -599,7 +599,7 @@ Detailed history belongs in STATUS.md.
 * Team/status tracking established.
 * Canonical repository structure established.
 * **GitHub repository confirmed: https://github.com/ManthanGadiya/AIOS.git**
-* **M1 (Foundation) + M2 (Stage I: CPU/System Calls) + M3 (Paging/Virtual Memory) + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority) + Mid-Review GUI + Week 6 (Synchronization + IPC) + Week 7 (I/O Subsystem + Syscall Implementation) implemented and tested**
+* **M1 (Foundation) + M2 (Stage I: CPU/System Calls) + M3 (Paging/Virtual Memory) + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority / AI_ADAPTIVE) + Mid-Review GUI + Week 6 (Synchronization + IPC) + Week 7 (I/O Subsystem + Syscall Implementation) + Week 8 (AI Agent Layer) implemented and tested**
 
 **Implemented (M1+M2):**
 
@@ -635,9 +635,9 @@ Detailed history belongs in STATUS.md.
 
 **Implemented (M5-Scheduler):**
 
-* **Scheduling policies** — FCFS (non-preemptive FIFO), Round Robin (quantum expiry preempts and rotates to the back), Priority (larger value = higher priority, preemptive; tie-breaks by ready time then PID)
+* **Scheduling policies** — FCFS (non-preemptive FIFO), Round Robin (quantum expiry preempts and rotates to the back), Priority (larger value = higher priority, preemptive; tie-breaks by ready time then PID), AI_ADAPTIVE (heuristic scoring with explainable decisions)
 * **Scheduler state** — persistent ready order reconciled with the Process Manager's READY set on every decision; policy change emits SCHEDULER_STARTED
-* **Scheduler events** — PROCESS_SELECTED / PROCESS_PREEMPTED / TIME_QUANTUM_EXPIRED (docs/08 section 40); decision history (cycle, policy, selected/preempted pid, reason), context-switch count, reset()
+* **Scheduler events** — PROCESS_SELECTED / PROCESS_PREEMPTED / TIME_QUANTUM_EXPIRED (docs/08 section 40); decision history (cycle, policy, selected/preempted pid, reason, score, scoreReason), context-switch count, reset()
 * **Timer integration** — TIMER interrupt drives Round Robin preemption through `InterruptManager::setScheduler()` (docs/08 section 24)
 
 **Implemented (Mid-Review GUI):**
@@ -662,9 +662,21 @@ Detailed history belongs in STATUS.md.
 * **New Event Types** — IO_REQUEST, IO_COMPLETE, IO_STARTED, IO_BLOCKED, IO_ERROR
 * **API Endpoint** — `POST /api/command` with `SYSCALL` command accepting `{pid, syscallNumber, payload}`
 
+**Implemented (Week 8 — AI Agent Layer):**
+
+* **AIAgentManager** — Agent creation via `createAgent()` wrapping ProcessManager + AI metadata (agentId, type RESEARCH/CODING, tokenBudget, tool permissions, resource quotas), agent state machine (ACTIVE/WAITING/CHECKPOINTED/FAILED/RECOVERED), statistics (CPU, memory, IPC, checkpoints, failures, recoveries)
+* **Resource Quotas** — CPU quota (cycles/period), Memory quota (pages), Token budget, I/O limit with `checkResourceQuota()` / `chargeResource()`
+* **Tool Permissions** — READ_DATA, SEARCH, WRITE_CODE, EXECUTE with `checkToolPermission()`, grant/revoke API
+* **Checkpointing** — `createCheckpoint(agentId, progress)` saves CPU context (PC/ACC/MAR/MBR/IR/FLAGS), process state, page count, progress string; per-agent checkpoint list
+* **Failure & Recovery** — `failAgent(agentId, FailureType)` with SIMULATED_CRASH/RESOURCE_LIMIT/EXECUTION_ERROR/TOOL_PERMISSION_ERROR/MEMORY_ERROR; releases mutexes, marks process FAILED, cleans IPC; `recoverAgent(agentId, checkpointId?)` restores CPU context, process state, validates memory mapping; deterministic IPC policy (pending messages discarded on recovery)
+* **Adaptive Scheduler** — `SchedulingPolicy::AI_ADAPTIVE` with Score = Priority×2 + Waiting×0.5 + Urgency − ResourceCost(cpuRatio+memRatio)×10; explainable decisions with score/scoreReason fields
+* **New Event Types** — AGENT_CREATED, AGENT_STARTED, AGENT_CHECKPOINTED, AGENT_TOOL_REQUEST, AGENT_TOOL_DENIED, AGENT_FAILURE, AGENT_RECOVERY_STARTED, AGENT_RECOVERED, AGENT_TERMINATED
+* **API Endpoints** — GET /api/agents/detail, POST /api/agent/create/checkpoint/recover/fail/tool-request, GET /api/agent/checkpoints/quota
+* **Frontend** — AIAgentPanel with action buttons (Checkpoint, Fail, Recover), tool permission toggles, checkpoint list with per-checkpoint recovery, detailed statistics (CPU, memory, IPC, checkpoints, failures, recoveries), agent state badges
+
 **Currently Working On:**
 
-1. AI Agent Layer (Week 8) — Agent Manager, Adaptive Scheduler, Resource Quotas, Checkpoint/Recovery
+1. Integration scenarios and WebSocket event streaming for real-time dashboard updates
 
 **Blocked By:**
 
@@ -698,6 +710,43 @@ npm run dev                           # dashboard on http://localhost:5173
 curl -X POST http://localhost:8081/api/command \
   -H "Content-Type: application/json" \
   -d '{"command":"SYSCALL","payload":{"pid":1,"syscallNumber":6,"payload":"DISK:0:test data"}}'
+```
+
+**AI Agent Layer Test:**
+```bash
+# Get agent details:
+curl http://localhost:8081/api/agents/detail
+
+# Create a new Research agent:
+curl -X POST http://localhost:8081/api/agent/create \
+  -H "Content-Type: application/json" \
+  -d '{"name":"ResearchBot","type":"RESEARCH","priority":2,"tokenBudget":1000}'
+
+# Create checkpoint:
+curl -X POST http://localhost:8081/api/agent/checkpoint \
+  -H "Content-Type: application/json" \
+  -d '{"agentId":"AGENT-001","progress":"Step 4 completed"}'
+
+# Simulate agent failure:
+curl -X POST http://localhost:8081/api/agent/fail \
+  -H "Content-Type: application/json" \
+  -d '{"agentId":"AGENT-001","failureType":"SIMULATED_CRASH"}'
+
+# Recover agent from latest checkpoint:
+curl -X POST http://localhost:8081/api/agent/recover \
+  -H "Content-Type: application/json" \
+  -d '{"agentId":"AGENT-001"}'
+
+# Request tool permission:
+curl -X POST http://localhost:8081/api/agent/tool-request \
+  -H "Content-Type: application/json" \
+  -d '{"agentId":"AGENT-001","tool":"SEARCH"}'
+
+# List checkpoints:
+curl "http://localhost:8081/api/agent/checkpoints?agentId=AGENT-001"
+
+# Get resource quota:
+curl "http://localhost:8081/api/agent/quota?agentId=AGENT-001"
 ```
 
 ---

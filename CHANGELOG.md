@@ -29,6 +29,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Canonical documentation filenames confirmed as plural (`AGENTS.md`, `14_Demo_Scenarios.md`); stale references removed.
 - Repository structure trees in docs/PRD.md and docs/ROADMAP.md aligned with the actual repository.
 
+## [2026-10-28] — Week 8: AI Agent Layer
+
+### Added
+
+- **AIAgentManager** (docs/12 section 5, 50):
+  - Agent creation via `createAgent()` — wraps ProcessManager.createAgentProcess() + AI metadata
+  - Agent metadata: agentId, name, type (RESEARCH/CODING), PID, priority, tokenBudget, tool permissions, resource quotas
+  - Agent state machine: ACTIVE / WAITING / CHECKPOINTED / FAILED / RECOVERED (docs/12 section 13)
+  - Agent statistics: CPU time, memory usage, IPC sent/received, checkpoints, failures, recoveries
+  - Integration with Process Manager, Memory Manager, Synchronization Manager, IPC Manager, Clock, Event Log
+
+- **Resource Quotas** (docs/12 section 23-26):
+  - CPU quota (cycles/period), Memory quota (pages), Token budget, I/O limit
+  - `checkResourceQuota()` / `chargeResource()` for quota enforcement
+
+- **Tool Permissions** (docs/12 section 27-28):
+  - READ_DATA, SEARCH, WRITE_CODE, EXECUTE
+  - Default: Research=READ_DATA+SEARCH, Coding=READ_DATA+WRITE_CODE+EXECUTE
+  - `checkToolPermission()` with event logging (AGENT_TOOL_REQUEST / AGENT_TOOL_DENIED)
+  - Grant/revoke API
+
+- **Checkpointing** (docs/12 section 31):
+  - `createCheckpoint(agentId, progress)` — saves CPU context (PC/ACC/MAR/MBR/IR/FLAGS), process state, page count, progress string
+  - Checkpoint storage with unique IDs (CP-001, CP-002...)
+  - List checkpoints per agent
+
+- **Failure & Recovery** (docs/12 section 29-33):
+  - `failAgent(agentId, FailureType)` — SIMULATED_CRASH (default), RESOURCE_LIMIT, EXECUTION_ERROR, TOOL_PERMISSION_ERROR, MEMORY_ERROR
+  - On failure: releases mutexes, marks process FAILED, cleans IPC channel
+  - `recoverAgent(agentId, checkpointId?)` — restores CPU context, process state, validates memory mapping
+  - Deterministic IPC policy: pending messages discarded on recovery (docs/12 section 36)
+
+- **Adaptive Scheduler** (docs/12 section 15-16):
+  - `SchedulingPolicy::AI_ADAPTIVE` with heuristic scoring:
+    - Score = Priority×2 + Waiting×0.5 + Urgency(agent) − ResourceCost(cpuRatio+memRatio)×10
+    - Urgency: token pressure + WAITING state bonus for AI agents
+    - Explainable decisions — `SchedulingDecision.score` and `SchedulingDecision.scoreReason` fields
+  - Preempts running process when AI score exceeds by threshold (5.0)
+
+- **New Event Types** (docs/12 section 49):
+  - AGENT_CREATED, AGENT_STARTED, AGENT_CHECKPOINTED, AGENT_TOOL_REQUEST, AGENT_TOOL_DENIED
+  - AGENT_FAILURE, AGENT_RECOVERY_STARTED, AGENT_RECOVERED, AGENT_TERMINATED
+
+- **API Endpoints** (docs/13):
+  - GET /api/agents/detail — full AgentStatistics array
+  - POST /api/agent/create — {name, type, priority, tokenBudget} → {pid}
+  - POST /api/agent/checkpoint — {agentId, progress} → {checkpointId}
+  - POST /api/agent/recover — {agentId, checkpointId?}
+  - POST /api/agent/fail — {agentId, failureType?}
+  - POST /api/agent/tool-request — {agentId, tool} → {allowed}
+  - GET /api/agent/checkpoints?agentId=... — Checkpoint[]
+  - GET /api/agent/quota?agentId=... — {cpuQuota, cpuUsed, memoryQuota, memoryUsed, tokenBudget, tokenUsed, ioLimit, ioUsed}
+
+- **Frontend Enhancements**:
+  - AIAgentPanel: action buttons (Checkpoint, Fail, Recover), tool permission toggles, checkpoint list with per-checkpoint recovery
+  - Detailed statistics: CPU cycles, memory pages, IPC sent/received, checkpoint/failure/recovery counts
+  - Agent state badges: ACTIVE/WAITING/CHECKPOINTED/FAILED/RECOVERED
+
+### Changed
+
+- Scheduler: added `AIAgentManager` dependency for AI adaptive scoring
+- `SchedulingDecision` extended with `score` (double) and `scoreReason` (string)
+- `SchedulingPolicy::AI_ADAPTIVE` added to enum
+
 ## [2026-10-28] — Week 7: I/O Subsystem + Syscall Implementation
 
 ### Added

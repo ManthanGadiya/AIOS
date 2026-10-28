@@ -1,5 +1,6 @@
 #pragma once
 
+#include <aios/agent/AIAgentManager.hpp>
 #include <aios/core/EventLog.hpp>
 #include <aios/core/SimulationClock.hpp>
 #include <aios/cpu/CPU.hpp>
@@ -36,6 +37,7 @@ public:
     ProcessManager& processManager() { return processes_; }
     SynchronizationManager& synchronizationManager() { return sync_; }
     IPCManager& ipcManager() { return ipc_; }
+    AIAgentManager& aiAgentManager() { return aiAgents_; }
 
     void setOutputStream(std::ostream* out);
     void setInputQueue(std::deque<int32_t> input);
@@ -59,6 +61,7 @@ private:
     CPU cpu_;
     SynchronizationManager sync_;
     IPCManager ipc_;
+    AIAgentManager aiAgents_;
 
     std::ostream* output_ = nullptr;
     std::deque<int32_t> input_;

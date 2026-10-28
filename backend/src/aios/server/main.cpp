@@ -1,3 +1,4 @@
+#include "aios/agent/AIAgentManager.hpp"
 #include "aios/core/EventLog.hpp"
 #include "aios/core/SimulationClock.hpp"
 #include "aios/core/types.hpp"
@@ -48,15 +49,18 @@ static std::vector<int32_t> makeProgram(int instructions) {
 // P1 TextEditor, P2 Compiler, P3 MusicPlayer, A1 Research Agent, A2 Coding Agent.
 // AI agents are ordinary OS processes created via createAgentProcess
 // (docs/06 section 34); they never bypass the scheduler.
-static void createDemoWorkload(ProcessManager& pm, SynchronizationManager* sync, IPCManager* ipc, IOManager* io) {
+static void createDemoWorkload(ProcessManager& pm, AIAgentManager& aiAgents,
+                               SynchronizationManager* sync, IPCManager* ipc, IOManager* io) {
     const auto proc = makeProgram(200);
     const auto agent = makeProgram(150);
 
     int p1 = pm.createProcess("TextEditor", 1, proc, 0);
     int p2 = pm.createProcess("Compiler", 2, proc, 0);
     int p3 = pm.createProcess("MusicPlayer", 1, proc, 0);
-    int a1 = pm.createAgentProcess("Research", 2, agent, 0);
-    int a2 = pm.createAgentProcess("Coding", 1, agent, 0);
+
+    // Create AI agents through the AI Agent Manager (docs/12 section 11)
+    int a1 = aiAgents.createAgent("Research", AgentType::RESEARCH, 2, agent, 0, 1000);
+    int a2 = aiAgents.createAgent("Coding", AgentType::CODING, 1, agent, 0, 1000);
 
     if (p1 != INVALID_PID) pm.admit(p1);
     if (p2 != INVALID_PID) pm.admit(p2);
@@ -128,6 +132,7 @@ int main(int argc, char* argv[]) {
     auto syncManager = std::make_unique<SynchronizationManager>();
     auto ipcManager = std::make_unique<IPCManager>();
     auto ioManager = std::make_unique<IOManager>();
+    auto aiAgentManager = std::make_unique<AIAgentManager>();
 
     // Wire components together
     processManager->setMemory(memory.get());
@@ -168,12 +173,21 @@ int main(int argc, char* argv[]) {
     interruptManager->setProcessManager(processManager.get());
     interruptManager->setMemoryManager(memManager.get());
 
+    // AI Agent Manager wiring
+    aiAgentManager->setEventLog(eventLog.get());
+    aiAgentManager->setProcessManager(processManager.get());
+    aiAgentManager->setMemoryManager(memManager.get());
+    aiAgentManager->setSynchronizationManager(syncManager.get());
+    aiAgentManager->setIPCManager(ipcManager.get());
+    aiAgentManager->setClock(clock.get());
+
     timer->setInterruptManager(interruptManager.get());
     timer->setQuantum(4);
 
     // Round Robin by default: the quantum preemption gives the mid-review
     // demo visible context switches (docs/08 sections 8-10).
     scheduler->setProcessManager(processManager.get());
+    scheduler->setAIAgentManager(aiAgentManager.get());
     scheduler->setEventLog(eventLog.get());
     scheduler->setClock(clock.get());
     scheduler->setPolicy(SchedulingPolicy::ROUND_ROBIN);
@@ -195,12 +209,13 @@ int main(int argc, char* argv[]) {
     apiServer.setIPCManager(ipcManager.get());
     apiServer.setIOManager(ioManager.get());
     apiServer.setSystemCallManager(systemCallManager.get());
+    apiServer.setAIAgentManager(aiAgentManager.get());
     apiServer.setRunFlag(&g_simRunning);
     apiServer.setResetHook([&]() {
-        createDemoWorkload(*processManager, syncManager.get(), ipcManager.get(), ioManager.get());
+        createDemoWorkload(*processManager, *aiAgentManager, syncManager.get(), ipcManager.get(), ioManager.get());
     });
 
-    createDemoWorkload(*processManager, syncManager.get(), ipcManager.get(), ioManager.get());
+    createDemoWorkload(*processManager, *aiAgentManager, syncManager.get(), ipcManager.get(), ioManager.get());
 
     // Refuse to start when something already answers on this port. Windows
     // socket semantics make bind() alone unreliable for detecting this, which
