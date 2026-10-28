@@ -4,7 +4,7 @@
 >
 > Update this file after every meaningful project change.
 
-**Last Updated:** 2026-10-27
+**Last Updated:** 2026-10-28
 
 ---
 
@@ -38,18 +38,18 @@ Final Demo
 
 # 2. Overall Status
 
-**Status:** 🟢 Core OS Implementation — M1/M2/M3 + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority) + Mid-Review GUI (REST Server + React Dashboard) + Week 6 (Synchronization + IPC) Complete
+**Status:** 🟢 Core OS Implementation — M1/M2/M3 + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority) + Mid-Review GUI (REST Server + React Dashboard) + Week 6 (Synchronization + IPC) + Week 7 (I/O Subsystem + Syscall Implementation) Complete
 
-**Implementation Status:** M1+M2+M3 + M4 + M5 + M5-Scheduler + Mid-Review GUI + Week 6 Complete — CPU, Memory, Process Management (full features), Interrupts, System Calls, Paging/Virtual Memory, Interrupt Priority/Timer, Process Resource Tracking/Statistics, Scheduling (FCFS/Round Robin/Priority), REST API + React Dashboard, Synchronization (Mutex/Semaphore/Deadlock Detection), IPC (Message Queues/Permissions/Statistics) implemented and tested
+**Implementation Status:** M1+M2+M3 + M4 + M5 + M5-Scheduler + Mid-Review GUI + Week 6 + Week 7 Complete — CPU, Memory, Process Management (full features), Interrupts, System Calls, Paging/Virtual Memory, Interrupt Priority/Timer, Process Resource Tracking/Statistics, Scheduling (FCFS/Round Robin/Priority), REST API + React Dashboard, Synchronization (Mutex/Semaphore/Deadlock Detection), IPC (Message Queues/Permissions/Statistics), I/O (Devices/Buffers/Spooler), I/O Syscalls (SYSCALL_IO_REQUEST) implemented and tested
 
 **GitHub Status:** https://github.com/ManthanGadiya/AIOS.git (main)
 
 **Current Focus:**
 
-* Core OS implementation (M1: Foundation + M2: Stage I CPU/System Calls + M3: Paging + M4: Full Interrupt Manager + M5: Process Manager full features + M5-Scheduler + Mid-Review GUI + Week 6: Synchronization + IPC) — **DONE**
+* Core OS implementation (M1: Foundation + M2: Stage I CPU/System Calls + M3: Paging + M4: Full Interrupt Manager + M5: Process Manager full features + M5-Scheduler + Mid-Review GUI + Week 6: Synchronization + IPC + Week 7: I/O Subsystem + Syscall Implementation) — **DONE**
 * C++ backend builds and tests pass (174 test cases / 914 assertions, 173 passing)
 * GitHub repository confirmed and synced
-* Next: I/O Subsystem (Week 7)
+* Next: AI Agent Layer (Week 8)
 
 ---
 
@@ -237,9 +237,9 @@ The C++ engine remains the simulation source of truth.
 
 # 7. Currently In Progress
 
-### Core OS Implementation (Week 7)
+### Core OS Implementation (Week 8)
 
-* I/O Subsystem — Device, Buffer, Spooler, IOManager per docs/11
+* AI Agent Layer — Agent Manager, Adaptive Scheduler, Resource Quotas, Checkpoint/Recovery
 
 ---
 
@@ -295,12 +295,15 @@ Do not invent assignments.
 1. ✅ Synchronization — Mutex, Semaphore, SynchronizationManager, deadlock detection
 2. ✅ IPC — MessageQueue, IPCManager, permissions, statistics, process cleanup
 
-### Next Milestone (Week 7 — I/O)
+### Next Milestone (Week 8 — AI Agent Layer)
 
-1. Implement Device abstraction (block/char devices, registers, interrupts)
-2. Implement Buffer management (buffer cache, replacement policies)
-3. Implement Spooler (job queue, concurrent I/O)
-4. Implement IOManager integration
+1. Implement AI Agent Manager (agent creation, metadata, state, checkpoint/failure/recovery)
+2. Implement Adaptive Scheduler (heuristic scoring, explainable decisions)
+3. Implement Resource Quotas (CPU, Memory, Token Budget)
+4. Implement Tool Permissions and Agent Communication
+5. Implement Checkpoint/Recovery (CPU context, process state, memory refs)
+6. WebSocket event streaming for real-time dashboard updates
+7. Full system test per ROADMAP §14.3
 
 ---
 
@@ -406,6 +409,16 @@ Synchronization and IPC subsystems complete per docs/09 and docs/10.
 * **New System Calls** — SYSCALL_LOCK=7, UNLOCK=8, WAIT=9, SIGNAL=10, IPC_RECEIVE=11 (stubs returning UNSUPPORTED)
 * **Unit Tests** — test_sync.cpp (21 T-SYNC), test_ipc.cpp (22 T-IPC); full suite 174 test cases / 914 assertions (173 passing, 1 expectation mismatch: T-IPC-017 expects default-deny after reset, implementation correctly uses default-allow)
 
+**2026-10-28 (Week 7 — I/O Subsystem + Syscall Implementation)**
+
+I/O subsystem complete per docs/11; `SYSCALL_IO_REQUEST=6` moved from stub to full implementation.
+
+* **I/O Subsystem** — Device (DISK/PRINTER/KEYBOARD/NETWORK with processing time, FIFO queue, state machine), Buffer (EMPTY/PARTIAL/FULL, capacity-limited write/read), Spooler (job queue per device, concurrent I/O), IOManager (device/buffer/spooler management, `requestIO()`, `tick()`, process cleanup, statistics), new event types: IO_REQUEST/COMPLETE/STARTED/BLOCKED/ERROR
+* **System Call Implementation** — `SyscallRequest` extended with `payload` field; `SystemCallManager` payload storage (`setSyscallPayload()`), `handleIoRequest()` parses `"deviceId:operation:data"` payload (0=READ, 1=WRITE); calls `IOManager::requestIO()` and blocks process via `ProcessManager::blockProcess()`; on completion `IOManager::tick()` generates `IO_COMPLETE` interrupt → `ProcessManager::wakeProcess()`
+* **API Endpoint** — `POST /api/command` with `SYSCALL` command accepting `{pid, syscallNumber, payload}`
+* **Event Logging** — all syscalls now use 4-arg `EventLog::record(type, pid, cycle, detail)` with clock cycle
+* **Sync Syscalls Fixed** — LOCK/UNLOCK/WAIT/SIGNAL signatures corrected to match `SynchronizationManager`
+
 **2026-08-20 (M5-Scheduler)**
 
 Scheduler complete: FCFS, Round Robin and Priority policies.
@@ -497,8 +510,9 @@ AIOS is currently in the Core OS Implementation phase.
 
 M1 (Foundation), M2 (Stage I: CPU/System Calls), M3 (Paging/Virtual Memory),
 M4 (Full Interrupt Manager), M5 (Process Manager Full Features),
-M5-Scheduler (FCFS / Round Robin / Priority) and the Mid-Review GUI
-(REST server + React dashboard) are complete:
+M5-Scheduler (FCFS / Round Robin / Priority), Mid-Review GUI
+(REST server + React dashboard), Week 6 (Synchronization + IPC),
+and Week 7 (I/O Subsystem + Syscall Implementation) are complete:
 - CPU Simulator with registers, fetch-decode-execute, full instruction set
 - Memory (flat RAM) + Memory Manager (page tables, frames, swap, FIFO replacement)
 - Process Manager (PCB, states, queues, context switch, resource tracking, statistics)
@@ -507,13 +521,15 @@ M5-Scheduler (FCFS / Round Robin / Priority) and the Mid-Review GUI
 - REST API server exposing the engine + simulation control (START/PAUSE/STOP/RESET)
 - React dashboard: stat cards, process table, CPU panel, frame grid, page tables,
   ready queue, event log, interrupt panel — live data on port 8081/5173
-- All unit tests passing (131 test cases), CMake + MinGW build verified
+- I/O Subsystem: Device (DISK/PRINTER/KEYBOARD/NETWORK), Buffer, Spooler, IOManager with tick()
+- I/O Syscall: SYSCALL_IO_REQUEST=6 with payload parsing, process blocking, interrupt-driven completion
+- All unit tests passing (174 test cases), CMake + MinGW build verified
 
 The architecture, OS subsystems, AI-agent layer, GUI direction,
 demo scenarios and testing strategy have been defined.
 
 Next:
-1. Synchronization (Week 6)
+1. AI Agent Layer (Week 8)
 ```
 
 ---

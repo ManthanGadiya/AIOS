@@ -199,6 +199,7 @@ enum class SyscallStatus : int32_t {
 struct SyscallRequest {
     int pid = INVALID_PID;
     int32_t syscallNumber = 0;
+    std::string payload; // Additional parameters for complex syscalls (e.g., I/O)
 };
 
 struct SyscallResult {

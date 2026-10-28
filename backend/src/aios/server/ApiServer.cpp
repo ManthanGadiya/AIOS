@@ -24,6 +24,7 @@ void ApiServer::setInterruptManager(InterruptManager* im) { im_ = im; }
 void ApiServer::setSynchronizationManager(SynchronizationManager* sync) { sync_ = sync; }
 void ApiServer::setIPCManager(IPCManager* ipc) { ipc_ = ipc; }
 void ApiServer::setIOManager(IOManager* io) { io_ = io; }
+void ApiServer::setSystemCallManager(SystemCallManager* syscalls) { syscalls_ = syscalls; }
 
 void ApiServer::start() {
     if (running_) return;
@@ -542,6 +543,23 @@ void ApiServer::setupRoutes() {
             } else if (command == "RUN_SCENARIO") {
                 std::cout << "[ApiServer] RUN_SCENARIO: " << payload.value("scenario", std::string("basic_multiprogramming")) << " (workload preloaded)" << std::endl;
                 success = true;
+            } else if (command == "SYSCALL") {
+                int pid = payload.value("pid", -1);
+                int syscallNumber = payload.value("syscallNumber", -1);
+                std::string syscallPayload = payload.value("payload", "");
+                if (pid >= 0 && syscallNumber >= 0 && syscalls_) {
+                    syscalls_->setSyscallPayload(pid, syscallPayload);
+                    SyscallRequest req{pid, syscallNumber, syscallPayload};
+                    SyscallResult result = syscalls_->handleSystemCall(req);
+                    success = (result.status == SyscallStatus::OK);
+                    json j;
+                    j["status"] = static_cast<int>(result.status);
+                    j["returnValue"] = result.returnValue;
+                    j["message"] = result.message;
+                    if (!success) error = result.message;
+                } else {
+                    error = "Invalid SYSCALL parameters or syscalls not initialized";
+                }
             } else {
                 error = "Unknown command: " + command;
             }

@@ -49,7 +49,7 @@ export function Dashboard({ connected = true }: DashboardProps) {
       api.getMemory(),
       api.getScheduler(),
       api.getInterrupts(),
-      api.getEventLog(),
+      api.getEvents(),
     ]);
 
     // Only update a panel when its fetch succeeded; failed requests leave the

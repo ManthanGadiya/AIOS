@@ -185,6 +185,7 @@ export interface SyncSignalResponse {
 }
 
 export interface SchedulerState {
+  policy: SchedulingPolicy;
   currentAlgorithm: SchedulingPolicy;
   currentProcess: number | null;
   readyQueue: number[]; // PIDs in order
@@ -232,8 +233,116 @@ export interface EventLogEntry {
   pid?: number;
 }
 
+// Alias for EventLogEntry for use in Logs page
+export type Event = EventLogEntry;
+
+// Process statistics type for Processes page
+export interface ProcessStatistics {
+  pid: number;
+  name: string;
+  type: ProcessType;
+  state: ProcessState;
+  priority: number;
+  baseAddress: number;
+  programSize: number;
+  arrivalTime: number;
+  cpuTime: number;
+  waitingTime: number;
+  turnaroundTime: number;
+  responseTime: number;
+  stateChanges: number;
+  contextSwitches: number;
+  pageFaults: number;
+  ioRequests: number;
+  ipcOperations: number;
+}
+
+// Agent statistics type for AI Agents page
+export interface AgentStatistics {
+  pid: number;
+  agentId: string;
+  name: string;
+  type: ProcessType;
+  state: ProcessState;
+  priority: number;
+  task: string;
+  tokenUsage: { used: number; budget: number };
+  permissions: Record<string, boolean>;
+  cpuTime: number;
+  memoryUsage: number;
+  ipcSent: number;
+  ipcReceived: number;
+  checkpointCount: number;
+  failureCount: number;
+  recoveryCount: number;
+}
+
+// I/O state type
+export interface IOState {
+  devices: IODevice[];
+  buffers: Array<{
+    name: string;
+    capacity: number;
+    used: number;
+    state: 'EMPTY' | 'PARTIAL' | 'FULL';
+  }>;
+  spoolers: Array<{
+    deviceName: string;
+    queue: string[];
+    active: boolean;
+  }>;
+}
+
+// IPC state type
+export interface IPCState {
+  channels: Array<{
+    pid: number;
+    messageCount: number;
+    capacity: number;
+  }>;
+  messages: Array<{
+    id: number;
+    senderPid: number;
+    receiverPid: number;
+    type: string;
+    payload: string;
+    timestamp: number;
+  }>;
+  permissions: Array<{
+    senderPid: number;
+    receiverPid: number;
+    allowed: boolean;
+  }>;
+  statistics: {
+    messagesSent: number;
+    messagesReceived: number;
+    failedSends: number;
+    permissionDenials: number;
+  };
+}
+
+// Interrupt state type
+export interface InterruptState {
+  pending: InterruptEvent[];
+  completed: InterruptEvent[];
+  currentPhase: 'IDLE' | 'PENDING' | 'SERVICING' | 'COMPLETED';
+}
+
+// Memory state type
+export interface MemoryState {
+  totalWords: number;
+  usedWords: number;
+  pageSize: number;
+  totalFrames: number;
+  usedFrames: number;
+  pageFaultCount: number;
+  pageReplacementCount: number;
+  swapWords: number;
+  frames: MemoryFrame[];
+}
+
 export interface SimulationControl {
-  command: 'START_SIMULATION' | 'PAUSE_SIMULATION' | 'STOP_SIMULATION' | 'RESET_SIMULATION' | 'CHANGE_SCHEDULER' | 'RUN_SCENARIO' | 'GENERATE_PAGE_FAULT' | 'SIMULATE_AGENT_FAILURE';
+  command: 'START_SIMULATION' | 'PAUSE_SIMULATION' | 'STOP_SIMULATION' | 'RESET_SIMULATION' | 'CHANGE_SCHEDULER' | 'RUN_SCENARIO' | 'GENERATE_PAGE_FAULT' | 'SIMULATE_AGENT_FAILURE' | 'SET_CLOCK_SPEED' | 'SET_QUANTUM';
   payload?: Record<string, unknown>;
 }
 

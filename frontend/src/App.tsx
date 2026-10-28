@@ -1,9 +1,19 @@
 // AIOS Frontend Main App
 // Per docs/13_GUI_Architecture.md - overall layout with TopBar, Sidebar, Main Content
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { TopBar } from './components/Header/TopBar';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { Dashboard } from './pages/Dashboard/Dashboard';
+import { ProcessesPage } from './pages/Processes/ProcessesPage';
+import { AgentsPage } from './pages/Agents/AgentsPage';
+import { CPUPage } from './pages/CPU/CPUPage';
+import { MemoryPage } from './pages/Memory/MemoryPage';
+import { IOPage } from './pages/IO/IOPage';
+import { IPCPage } from './pages/IPC/IPCPage';
+import { SchedulerPage } from './pages/Scheduler/SchedulerPage';
+import { InterruptsPage } from './pages/Interrupts/InterruptsPage';
+import { LogsPage } from './pages/Logs/LogsPage';
+import { SettingsPage } from './pages/Settings/SettingsPage';
 import type { SchedulingPolicy, SimulationControl } from './types/os';
 import { api } from './services/api';
 import { ws } from './services/api';
@@ -65,6 +75,40 @@ function App() {
     return () => ws.disconnect();
   }, []);
 
+  const renderPage = () => {
+    switch (activePage) {
+      case 'dashboard':
+        return <Dashboard connected={connected} />;
+      case 'processes':
+        return <ProcessesPage />;
+      case 'agents':
+        return <AgentsPage />;
+      case 'cpu':
+        return <CPUPage />;
+      case 'memory':
+        return <MemoryPage />;
+      case 'io':
+        return <IOPage />;
+      case 'ipc':
+        return <IPCPage />;
+      case 'scheduler':
+        return <SchedulerPage />;
+      case 'interrupts':
+        return <InterruptsPage />;
+      case 'logs':
+        return <LogsPage />;
+      case 'settings':
+        return <SettingsPage />;
+      default:
+        return (
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-8 text-center">
+            <h2 className="text-xl font-medium text-gray-100 mb-2">{activePage}</h2>
+            <p className="text-gray-500">Page not implemented</p>
+          </div>
+        );
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col">
       {/* Top Bar */}
@@ -94,13 +138,14 @@ function App() {
         {/* Main Content */}
         <main className={`flex-1 overflow-auto transition-all duration-200 ${sidebarOpen ? 'ml-0' : 'ml-0'}`}>
           <div className="p-4 lg:p-6">
-            {activePage === 'dashboard' && <Dashboard connected={connected} />}
-            {activePage !== 'dashboard' && (
+            <Suspense fallback={
               <div className="bg-gray-800 border border-gray-700 rounded-lg p-8 text-center">
-                <h2 className="text-xl font-medium text-gray-100 mb-2 capitalize">{activePage}</h2>
-                <p className="text-gray-500">Page under construction</p>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
+                <p className="text-gray-400 mt-4">Loading {activePage}...</p>
               </div>
-            )}
+            }>
+              {renderPage()}
+            </Suspense>
           </div>
         </main>
       </div>

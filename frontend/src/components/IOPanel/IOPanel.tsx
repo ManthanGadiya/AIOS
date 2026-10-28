@@ -12,9 +12,9 @@ export function IOPanel({ autoRefresh = true, refreshInterval = 3000 }: IOPanelP
 
   const fetchDevices = async () => {
     try {
-      const response = await api.getIODevices();
+      const response = await api.getIO();
       if (response.success && response.data) {
-        setDevices(response.data);
+        setDevices(response.data.devices || []);
       }
     } catch (error) {
       console.error('Failed to fetch I/O devices:', error);

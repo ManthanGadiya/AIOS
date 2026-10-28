@@ -582,7 +582,7 @@ Keep this section concise.
 Detailed history belongs in STATUS.md.
 -->
 
-**Phase:** 🟢 Core OS Implementation — M1/M2/M3 + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority) + Mid-Review GUI (REST Server + React Dashboard) + Week 6 (Synchronization + IPC) Complete
+**Phase:** 🟢 Core OS Implementation — M1/M2/M3 + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority) + Mid-Review GUI (REST Server + React Dashboard) + Week 6 (Synchronization + IPC) + Week 7 (I/O Subsystem + Syscall Implementation) Complete
 
 **Current State:**
 
@@ -599,7 +599,7 @@ Detailed history belongs in STATUS.md.
 * Team/status tracking established.
 * Canonical repository structure established.
 * **GitHub repository confirmed: https://github.com/ManthanGadiya/AIOS.git**
-* **M1 (Foundation) + M2 (Stage I: CPU/System Calls) + M3 (Paging/Virtual Memory) + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority) + Mid-Review GUI + Week 6 (Synchronization + IPC) implemented and tested**
+* **M1 (Foundation) + M2 (Stage I: CPU/System Calls) + M3 (Paging/Virtual Memory) + M4 (Full Interrupt Manager) + M5 (Process Manager Full Features) + M5-Scheduler (FCFS / Round Robin / Priority) + Mid-Review GUI + Week 6 (Synchronization + IPC) + Week 7 (I/O Subsystem + Syscall Implementation) implemented and tested**
 
 **Implemented (M1+M2):**
 
@@ -655,9 +655,16 @@ Detailed history belongs in STATUS.md.
 * **New System Calls** — SYSCALL_LOCK=7, UNLOCK=8, WAIT=9, SIGNAL=10, IPC_RECEIVE=11 (stubs returning UNSUPPORTED)
 * **Full test coverage** — 174 test cases, 173 passing (1 test expectation mismatch: T-IPC-017 expects default-deny after reset, implementation correctly uses default-allow)
 
+**Implemented (Week 7 — I/O Subsystem + Syscall Implementation):**
+
+* **I/O Subsystem** — Device (DISK/PRINTER/KEYBOARD/NETWORK with processing time, FIFO queue, state machine AVAILABLE/BUSY/ERROR), Buffer (EMPTY/PARTIAL/FULL states, capacity-limited write/read), Spooler (job queue per device, concurrent I/O), IOManager (device/buffer/spooler management, `requestIO()`, `tick()` advances device processing, process cleanup, statistics)
+* **I/O Syscall** — `SYSCALL_IO_REQUEST=6` with payload parsing (`"deviceId:operation:data"`, operation 0=READ/1=WRITE), blocks calling process, `IOManager::tick()` generates `IO_COMPLETE` interrupt → wakes process
+* **New Event Types** — IO_REQUEST, IO_COMPLETE, IO_STARTED, IO_BLOCKED, IO_ERROR
+* **API Endpoint** — `POST /api/command` with `SYSCALL` command accepting `{pid, syscallNumber, payload}`
+
 **Currently Working On:**
 
-1. I/O Subsystem (Week 7) — Device, Buffer, Spooler, IOManager per docs/11
+1. AI Agent Layer (Week 8) — Agent Manager, Adaptive Scheduler, Resource Quotas, Checkpoint/Recovery
 
 **Blocked By:**
 
@@ -677,9 +684,20 @@ export PATH="/c/Users/Admin/scoop/apps/mingw/current/bin:$PATH"
 ./build/tests/aios_tests.exe
 
 # Full stack (mid-review demo):
-$env:PATH = "C:\Users\Admin\scoop\apps\mingw\current\bin;" + $env:PATH; & "D:\College\3rd Year\Sem 1\OS\AIOS\backend\build\aios_server.exe" 8081          # terminal 1 — REST API on :8081 (use 8080 only if no Apache is running)
-cd ../frontend && npm install         # terminal 2
+# Terminal 1 — REST API on :8081
+$env:PATH = "C:\Users\Admin\scoop\apps\mingw\current\bin;" + $env:PATH; & "D:\College\3rd Year\Sem 1\OS\AIOS\backend\build\aios_server.exe" 8081
+
+# Terminal 2 — Dashboard
+cd ../frontend && npm install
 npm run dev                           # dashboard on http://localhost:5173
+```
+
+**I/O Syscall Test:**
+```bash
+# After starting the server, test the I/O syscall:
+curl -X POST http://localhost:8081/api/command \
+  -H "Content-Type: application/json" \
+  -d '{"command":"SYSCALL","payload":{"pid":1,"syscallNumber":6,"payload":"DISK:0:test data"}}'
 ```
 
 ---

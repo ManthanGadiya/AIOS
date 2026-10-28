@@ -148,6 +148,8 @@ int main(int argc, char* argv[]) {
     systemCallManager->setEventLog(eventLog.get());
     systemCallManager->setProcessManager(processManager.get());
     systemCallManager->setSynchronizationManager(syncManager.get());
+    systemCallManager->setIOManager(ioManager.get());
+    systemCallManager->setClock(clock.get());
 
     syncManager->setEventLog(eventLog.get());
     syncManager->setProcessManager(processManager.get());
@@ -192,6 +194,7 @@ int main(int argc, char* argv[]) {
     apiServer.setSynchronizationManager(syncManager.get());
     apiServer.setIPCManager(ipcManager.get());
     apiServer.setIOManager(ioManager.get());
+    apiServer.setSystemCallManager(systemCallManager.get());
     apiServer.setRunFlag(&g_simRunning);
     apiServer.setResetHook([&]() {
         createDemoWorkload(*processManager, syncManager.get(), ipcManager.get(), ioManager.get());

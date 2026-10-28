@@ -1,7 +1,7 @@
 // API Layer - REST communication with C++ backend
 // Per docs/13_GUI_Architecture.md sections 51-53, 56
 
-import type { SimulationControl, SystemStatistics, Process, Agent, CPUState, MemoryFrame, PageTable, SchedulerState, InterruptEvent, EventLogEntry, IpcMessage, IODevice, Mutex, Semaphore, IpcSendRequest, IpcReceiveRequest, IpcSendResponse, IpcReceiveResponse, SyncLockRequest, SyncUnlockRequest, SyncWaitRequest, SyncSignalRequest, SyncLockResponse, SyncUnlockResponse, SyncWaitResponse, SyncSignalResponse, ApiResponse, WSMessage } from '../types/os';
+import type { SimulationControl, SystemStatistics, Process, Agent, CPUState, MemoryFrame, PageTable, SchedulerState, InterruptEvent, EventLogEntry, Mutex, Semaphore, IpcSendRequest, IpcReceiveRequest, IpcSendResponse, IpcReceiveResponse, SyncLockRequest, SyncUnlockRequest, SyncWaitRequest, SyncSignalRequest, SyncLockResponse, SyncUnlockResponse, SyncWaitResponse, SyncSignalResponse, ApiResponse, WSMessage } from '../types/os';
 
 // Type exports
 export type { SimulationControl } from '../types/os';
@@ -67,6 +67,10 @@ class ApiService {
     return this.request<Process[]>('/processes');
   }
 
+  getAllProcesses() {
+    return this.request<any[]>('/processes');
+  }
+
   getAgents() {
     return this.request<Agent[]>('/agents');
   }
@@ -79,6 +83,10 @@ class ApiService {
     return this.request<{ frames: MemoryFrame[]; pageTables: PageTable[] }>('/memory');
   }
 
+  getPageTables() {
+    return this.request<PageTable[]>('/memory/page-tables');
+  }
+
   getScheduler() {
     return this.request<SchedulerState>('/scheduler');
   }
@@ -87,16 +95,20 @@ class ApiService {
     return this.request<InterruptEvent[]>('/interrupts');
   }
 
-  getEventLog() {
+  getEvents() {
     return this.request<EventLogEntry[]>('/events');
   }
 
-  getIpcMessages() {
-    return this.request<IpcMessage[]>('/ipc');
+  getIPC() {
+    return this.request<any>('/ipc');
   }
 
-  getIODevices() {
-    return this.request<IODevice[]>('/io');
+  getIO() {
+    return this.request<any>('/io');
+  }
+
+  getSync() {
+    return this.request<any>('/sync');
   }
 
   getMutexes() {
@@ -105,6 +117,19 @@ class ApiService {
 
   getSemaphores() {
     return this.request<Semaphore[]>('/semaphores');
+  }
+
+  // Configuration
+  setClockSpeed(speed: number) {
+    return this.sendCommand({ command: 'SET_CLOCK_SPEED', payload: { speed } });
+  }
+
+  setQuantum(quantum: number) {
+    return this.sendCommand({ command: 'SET_QUANTUM', payload: { quantum } });
+  }
+
+  reset() {
+    return this.sendCommand({ command: 'RESET_SIMULATION' });
   }
 
   // IPC Operations

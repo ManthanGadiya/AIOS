@@ -29,6 +29,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Canonical documentation filenames confirmed as plural (`AGENTS.md`, `14_Demo_Scenarios.md`); stale references removed.
 - Repository structure trees in docs/PRD.md and docs/ROADMAP.md aligned with the actual repository.
 
+## [2026-10-28] — Week 7: I/O Subsystem + Syscall Implementation
+
+### Added
+
+- **I/O Subsystem** (docs/11):
+  - `Device` class — DISK/PRINTER/KEYBOARD/NETWORK with processing time, FIFO request queue, state machine (AVAILABLE/BUSY/ERROR), tick-based processing
+  - `Buffer` class — EMPTY/PARTIAL/FULL states, capacity-limited write/read, statistics tracking
+  - `Spooler` class — job queue per device, concurrent I/O processing, spool job lifecycle
+  - `IOManager` — device/buffer/spooler management, `requestIO()`, `tick()` for device processing, process cleanup, statistics (total/completed/failed requests, interrupts, buffer events, spool jobs)
+  - New event types: IO_REQUEST, IO_COMPLETE, IO_STARTED, IO_BLOCKED, IO_ERROR
+
+- **System Call Implementation** — `SYSCALL_IO_REQUEST=6` moved from stub to full implementation:
+  - `SyscallRequest` extended with `payload` string field for complex syscalls
+  - `SystemCallManager` payload storage (`setSyscallPayload()`) with per-PID consumption
+  - `handleIoRequest()` parses `"deviceId:operation:data"` payload (operation: 0=READ, 1=WRITE)
+  - Calls `IOManager::requestIO()` and blocks calling process via `ProcessManager::blockProcess()`
+  - On completion, `IOManager::tick()` generates `IO_COMPLETE` interrupt → `ProcessManager::wakeProcess()`
+  - API endpoint: `POST /api/command` with `SYSCALL` command accepting `{pid, syscallNumber, payload}`
+
+### Changed
+
+- `SystemCallManager` event logging now uses 4-arg `EventLog::record(type, pid, cycle, detail)` with clock cycle
+- Synchronization syscalls (LOCK/UNLOCK/WAIT/SIGNAL) fixed to match `SynchronizationManager` signatures
+- `EventLog` calls updated to include cycle for all syscalls
+
 ## [2026-10-27] — Week 6: Synchronization + IPC
 
 ### Added

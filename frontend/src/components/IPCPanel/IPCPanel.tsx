@@ -22,9 +22,9 @@ export function IPCPanel({ autoRefresh = true, refreshInterval = 2000 }: IPCPane
 
   const fetchMessages = async () => {
     try {
-      const response = await api.getIpcMessages();
+      const response = await api.getIPC();
       if (response.success && response.data) {
-        setMessages(response.data);
+        setMessages(response.data.messages || []);
       }
     } catch (error) {
       console.error('Failed to fetch IPC messages:', error);

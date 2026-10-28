@@ -4,6 +4,7 @@
 #include "aios/core/SimulationClock.hpp"
 #include "aios/cpu/CPU.hpp"
 #include "aios/interrupt/InterruptManager.hpp"
+#include "aios/interrupt/SystemCallManager.hpp"
 #include "aios/io/IOManager.hpp"
 #include "aios/ipc/IPCManager.hpp"
 #include "aios/memory/Memory.hpp"
@@ -41,6 +42,7 @@ public:
     void setSynchronizationManager(SynchronizationManager* sync);
     void setIPCManager(IPCManager* ipc);
     void setIOManager(IOManager* io);
+    void setSystemCallManager(SystemCallManager* syscalls);
 
     // Simulation run-state control: START/PAUSE/STOP write this flag and the
     // host simulation loop reads it each tick (docs/13 sections 8-11).
@@ -92,6 +94,7 @@ private:
     SynchronizationManager* sync_ = nullptr;
     IPCManager* ipc_ = nullptr;
     IOManager* io_ = nullptr;
+    SystemCallManager* syscalls_ = nullptr;
 
     // Simulation control shared with the host loop
     std::atomic<bool>* runFlag_ = nullptr;
