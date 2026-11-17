@@ -177,6 +177,7 @@ Next Recommended Step:
   * **I/O surfaced**: `GET /api/io` returns devices/buffers/spoolers/stats; device error/recover endpoints functional; `IOManager::getAllDevices()` definition added (was declared-only); RESET resets I/O
   * **Tests**: +5 (T-SCHED-017/018, test_io.cpp T-IO-001..003); full suite 179 test cases / 980 assertions, all passing
   * **Handoff note (Hari Jadhav, I/O):** device error/recover are now real — review `IOManager::setDeviceError()` wake-on-failure policy (blocked owners are woken because the simulator has no I/O error return channel)
+  * **Demo I/O:** every demo process issues one blocking IO_REQUEST (DISK×2 queue, KEYBOARD, NETWORK, PRINTER); payloads are one-shot per PID (docs/05), so programs carry exactly one SYSCALL instruction; T-SC-008 covers the syscall→block→wake path; suite now 180 cases / 989 assertions
 
 ## 2026-10-27
 

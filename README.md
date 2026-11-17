@@ -653,7 +653,7 @@ Detailed history belongs in STATUS.md.
 * **IPC** — IPCMessage (id, sender/receiver PID, type, payload, timestamp), MessageQueue (FIFO, capacity limit, blocking/non-blocking receive), IPCManager (channels, send/receive, allow/deny permission lists, statistics), process cleanup (removes messages addressed to terminated process), agent communication patterns (research→coding, task request/response), per-process statistics, reset
 * **New Event Types** — MUTEX_CREATED/LOCKED/UNLOCKED, PROCESS_BLOCKED_ON_MUTEX/WAKEUP, SEMAPHORE_CREATED/WAIT/SIGNAL, DEADLOCK_DETECTED, SYNCHRONIZATION_ERROR, IPC_CHANNEL_CREATED, IPC_SEND/RECEIVE, IPC_MESSAGE_QUEUED/DELIVERED, IPC_QUEUE_FULL, IPC_PERMISSION_DENIED, IPC_ERROR
 * **New System Calls** — SYSCALL_LOCK=7, UNLOCK=8, WAIT=9, SIGNAL=10, IPC_RECEIVE=11 (stubs returning UNSUPPORTED)
-* **Full test coverage** — 179 test cases / 980 assertions, all passing (sync harness, IPC reset semantics and syscall expectations repaired on 2026-11-17; scheduler AI-scoring/policy-change and I/O device-error tests added)
+* **Full test coverage** — 180 test cases / 989 assertions, all passing (sync harness, IPC reset semantics and syscall expectations repaired on 2026-11-17; scheduler AI-scoring/policy-change, I/O device-error and syscall-driven I/O tests added)
 
 **Implemented (Week 7 — I/O Subsystem + Syscall Implementation):**
 
@@ -681,6 +681,7 @@ Detailed history belongs in STATUS.md.
 * **Per-cycle scheduling** — the scheduler runs every cycle instead of only when idle, so Priority and AI_ADAPTIVE preemption actually fire; the redundant second dispatch in the tick loop is gone
 * **AI_ADAPTIVE correctness** — the policy scores the RUNNING process as well (the old -1.0 sentinel preempted every cycle) and the API maps AI_ADAPTIVE to the real policy instead of silently substituting Round Robin
 * **I/O surfaced** — `GET /api/io` now serializes devices (state, queue by process name, current request, stats), buffers, spoolers and I/O statistics in the dashboard's IOState shape; `POST /api/device/error` / `/api/device/recover` actually inject and clear device failures (queued requests fail and their owners are woken); RESET re-creates I/O devices cleanly
+* **Demo I/O activity** — each demo process (P1–P3, A1–A2) now issues one blocking `IO_REQUEST` syscall mid-run (TextEditor/Compiler → DISK so the queue is visible; MusicPlayer → KEYBOARD, Research → NETWORK, Coding → PRINTER), so the I/O page shows real BUSY/queue/wakeup activity instead of idle devices
 
 **Currently Working On:**
 
