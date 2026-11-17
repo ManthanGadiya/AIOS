@@ -213,9 +213,10 @@ json ApiServer::memoryToJson() const {
     }
     
     if (mm_) {
-        // Get page tables for all processes
+        // Get page tables for all processes. Enumerate the Process Manager's
+        // actual PCB set: pids are monotonic, so no fixed upper bound is safe.
         if (pm_) {
-            for (int pid = 0; pid < 256; ++pid) { // Max PID range
+            for (const int pid : pm_->processIds()) {
                 auto* pcb = pm_->getProcess(pid);
                 if (pcb) {
                     const auto* pageTable = mm_->getPageTable(pid);
@@ -309,7 +310,10 @@ json ApiServer::statisticsToJson() const {
     int totalProcesses = 0;
     int aiAgents = 0;
     
-    for (int pid = 0; pid < 256; ++pid) {
+    // Pids are monotonic and unbounded; enumerate the PCB set itself rather
+    // than a fixed pid range (a 0..255 scan silently dropped every process
+    // created after the 255th, which made the dashboard totals freeze).
+    for (const int pid : pm_->processIds()) {
         auto* pcb = pm_->getProcess(pid);
         if (pcb) {
             ++totalProcesses;
@@ -457,10 +461,12 @@ json ApiServer::eventsToJson(int limit) const {
 
 json ApiServer::ipcToJson() const {
     json arr = json::array();
-    if (!ipc_) return arr;
+    if (!ipc_ || !pm_) return arr;
     
-    // Get all channels and their messages
-    for (int pid = 0; pid < 256; ++pid) {
+    // Get all channels and their messages. Channels are keyed by receiver
+    // pid; enumerate the real PCB set so channels of processes created after
+    // the 255th pid are not dropped.
+    for (const int pid : pm_->processIds()) {
         auto channel = ipc_->getChannel(pid);
         if (channel) {
             auto messages = ipc_->getMessages(pid);
@@ -722,8 +728,12 @@ void ApiServer::setupRoutes() {
                     // Count CPU-live NORMAL processes: terminated/failed ones
                     // keep their PCB but no longer occupy a slot, so re-setting
                     // the count after a demo run spins up fresh work again.
+                    // Enumerate the PCB set itself: pids are monotonic and
+                    // grow without bound, so any fixed pid range eventually
+                    // goes blind and the count command starts piling up
+                    // invisible processes on every request.
                     std::vector<int> alive;
-                    for (int pid = 0; pid < 256; ++pid) {
+                    for (const int pid : pm_->processIds()) {
                         auto* pcb = pm_->getProcess(pid);
                         if (pcb && pcb->type == ProcessType::NORMAL &&
                             pcb->state != ProcessState::TERMINATED &&
@@ -741,25 +751,38 @@ void ApiServer::setupRoutes() {
                                                        "Terminal", "Database", "ChatApp",
                                                        "Backup"};
                         constexpr int kNameCount = 7;
+                        int created = 0;
                         for (int i = currentCount; i < targetCount; ++i) {
                             const std::string name = kNames[i % kNameCount];
                             const auto prog = makeLoopProgram(6, 40);
                             int pid = pm_->createProcess(name, 1, prog, 0, ProcessType::NORMAL);
-                            if (pid != INVALID_PID) {
-                                if (syscalls_) {
-                                    syscalls_->setSyscallPayload(pid, "DISK:1:" + name + "-save");
-                                }
-                                pm_->admit(pid);
+                            if (pid == INVALID_PID) {
+                                error = "Failed to create process " + name +
+                                        " (engine rejected it)";
+                                break;
                             }
+                            if (syscalls_) {
+                                syscalls_->setSyscallPayload(pid, "DISK:1:" + name + "-save");
+                            }
+                            pm_->admit(pid);
+                            ++created;
                         }
-                        success = true;
+                        if (error.empty()) success = true;
+                        else success = currentCount + created >= targetCount;
                     } else if (targetCount < currentCount) {
                         // Terminate excess processes (highest PIDs first)
                         std::sort(alive.begin(), alive.end(), std::greater<int>());
+                        int killed = 0;
                         for (int i = 0; i < currentCount - targetCount; ++i) {
-                            pm_->terminate(alive[i]);
+                            if (pm_->terminate(alive[i])) ++killed;
                         }
-                        success = true;
+                        if (killed == currentCount - targetCount) {
+                            success = true;
+                        } else {
+                            error = "Terminated only " + std::to_string(killed) + " of " +
+                                    std::to_string(currentCount - targetCount) +
+                                    " excess processes";
+                        }
                     } else {
                         success = true; // Already at target
                     }
@@ -827,7 +850,7 @@ void ApiServer::setupRoutes() {
     server_.Get("/api/processes", [this](const httplib::Request&, httplib::Response& res) {
         json arr = json::array();
         if (pm_) {
-            for (int pid = 0; pid < 256; ++pid) {
+            for (const int pid : pm_->processIds()) {
                 auto* pcb = pm_->getProcess(pid);
                 if (pcb && pcb->type == ProcessType::NORMAL) {
                     arr.push_back(processToJson(pcb));
@@ -840,7 +863,7 @@ void ApiServer::setupRoutes() {
     server_.Get("/api/agents", [this](const httplib::Request&, httplib::Response& res) {
         json arr = json::array();
         if (pm_) {
-            for (int pid = 0; pid < 256; ++pid) {
+            for (const int pid : pm_->processIds()) {
                 auto* pcb = pm_->getProcess(pid);
                 if (pcb && pcb->type == ProcessType::AI_AGENT) {
                     arr.push_back(agentToJson(pcb));
