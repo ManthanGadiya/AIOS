@@ -170,6 +170,16 @@ Next Recommended Step:
 
 ## 2026-11-17
 
+* **Demo Stability Pass (dashboard UX + engine regressions):**
+  * **Process table (Pragati Jadhav, frontend):** processes page consumed the wrong endpoint shape (NaN memory); now uses the Process JSON directly, shows KB, hides TERMINATED rows. Scheduler settings page initializes policy/quantum from GET /api/scheduler instead of hardcoded defaults
+  * **Agent panel (Pragati Jadhav, frontend):** inline create form (name, type, priority, token budget, permission checkboxes); checkpoint/fail/recover now operate on the real AGENT-N ids returned by /api/agents
+  * **Agent identity (ApiServer agentToJson):** /api/agents now merges AIAgentManager metadata by PID — real agentId/task/tokenUsage/permissions/agentState/counts (previously fabricated "A"+pid ids that no agent endpoint could resolve)
+  * **Demo workload (server):** loop-based programs (~300 cycles, ~16-20 words) keep the demo resident in the 64-frame memory (the 200-word image overflowed once processes were added and ended a process FAILED); SET_CLOCK_SPEED now really drives the loop; SET_PROCESS_COUNT adds named processes with DISK writes
+  * **Engine fix — block context (process subsystem, owner UNKNOWN ? needs review):** blockProcess() released the CPU without saving the context, so wakes rewound to the last preemption snapshot and re-ran the blocking SYSCALL; context is now saved at the block point. T-PROC-010
+  * **Engine fix — I/O queue (Hari Jadhav, I/O):** completed devices never started the next queued request, stranding owners in WAITING; IOManager::tick now dequeues/pushes on completion. T-IO-004
+  * **Cleanup (ApiServer.cpp):** removed a duplicate registration of the whole GET state-endpoint block (dead — httplib dispatches only the first)
+  * **Tests:** +2 (T-PROC-010, T-IO-004); full suite 183 cases / 1021 assertions, all passing
+  * **Handoff:** server must be restarted to pick up the new binary (exe is locked by any running instance)
 * **Engine Reliability Pass (integration testing follow-up):**
   * **Interrupt resume** (main.cpp): `cpu->resume()` after every serviced interrupt â€” FCFS/Priority no longer stall after a PAGE_FAULT/SYSCALL
   * **Engine mutex**: sim loop and all HTTP handlers serialized through cpp-httplib pre/post routing hooks; mid-run CHANGE_SCHEDULER no longer crashes

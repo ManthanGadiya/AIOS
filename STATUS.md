@@ -47,7 +47,7 @@ Final Demo
 **Current Focus:**
 
 * Core OS implementation (M1: Foundation + M2: Stage I CPU/System Calls + M3: Paging + M4: Full Interrupt Manager + M5: Process Manager full features + M5-Scheduler + Mid-Review GUI + Week 6: Synchronization + IPC + Week 7: I/O Subsystem + Syscall Implementation + Week 8: AI Agent Layer) â€” **DONE**
-* C++ backend builds and the full test suite passes (181 test cases / 996 assertions, all passing)
+* C++ backend builds and the full test suite passes (183 test cases / 1021 assertions, all passing)
 * GitHub repository confirmed and synced
 * Next: Integration scenarios and WebSocket event streaming
 
@@ -369,6 +369,23 @@ Meaningful commit created
 
 # 13. Latest Meaningful Change
 
+**2026-11-17 (Demo stability: UX fixes, real agent identity, two engine bugs)**
+
+Follow-up pass from end-to-end dashboard testing, fixing the demo-blocking defects.
+
+* Frontend process table (ProcessesPage/api.ts): the page mapped GET /api/processes (Process JSON, no programSize) through the ProcessStatistics mapper, showing NaN memory. It now consumes the Process shape directly, displays KB (4 bytes/word) and hides TERMINATED rows (the event log keeps history). processToJson also emits programSize and memory in KB with one decimal
+* Scheduler settings (SettingsPage): policy/quantum were hardcoded ('FCFS'/4) while the engine runs ROUND_ROBIN. The page now initializes from GET /api/scheduler — the backend is the source of truth
+* Agent identity (processToJson ? agentToJson): /api/agents fabricated agentId = "A"+pid while /api/agents/detail returned real AGENT-N ids, so the UI's checkpoint/fail/recover buttons could never resolve an agent (no-op). agentToJson now merges AIAgentManager metadata by PID (agentId, task, tokenUsage, permissions, agentState, checkpoint/failure counts); checkpoint with AGENT-1 verified end-to-end
+* Agent creation (AIAgentPanel + /api/agent/create): the prompt()/confirm() flow is replaced by an inline form (name, type, priority 1-10, token budget, tool-permission checkboxes); the backend validates the permissions array (unknown ? 400)
+* Clock speed (main.cpp/ApiServer): SET_CLOCK_SPEED now drives the simulation loop (N cycles per 100 ms tick via a shared std::atomic<int>); previously accepted and ignored
+* Longer demo runs (makeLoopProgram in main.cpp/ApiServer): demo/agent programs are counted loops (warmup ADDs, one blocking SYSCALL, SUB/JZ/JMP countdown, HALT) — ~300 cycles in ~16-20 words, so the whole workload stays resident in the 64-frame logical memory. The previous 200-word programs filled 59/64 pages; adding two processes forced evictions and one process ended FAILED executing zero-padded swap content (docs/13-14 demo would break)
+* Named extra processes (SET_PROCESS_COUNT): added processes get demo names (Spreadsheet, Browser, VideoPlayer, Terminal, Database, ChatApp, Backup), loop programs and one DISK write each, so the I/O queue visibly accumulates; counting is alive-only, so re-setting the count after a run spins up fresh work
+* ENGINE FIX — context lost on block (ProcessManager::blockProcess): releasing the CPU discarded the running context, so a WAITING process woke up rewound to its last preemption snapshot, re-executed and re-triggered the blocking SYSCALL (with the already-consumed one-shot payload). blockProcess now snapshots the context at the block point before releasing. Regression test T-PROC-010
+* ENGINE FIX — I/O queue stall (IOManager::tick): after a completion the device returned to AVAILABLE but never started the next queued request, so requests behind the first stalled until a new submission re-activated the device and their owners hung in WAITING forever. Completion now pulls the next request (FIFO, docs/11). Regression test T-IO-004
+* Dead code (ApiServer.cpp): the entire GET state-endpoint block was registered twice; cpp-httplib only dispatches the first registration, so edits to the duplicate were silently dead. The duplicate is removed
+* New tests: T-PROC-010 (block saves context; wake resumes at the block point) and T-IO-004 (queued requests drain automatically and every owner is woken); full suite 183 test cases / 1021 assertions, all passing
+* Note: the running server must be restarted to pick up the new binary; aios_server.exe cannot be relinked while an instance holds it
+
 **2026-11-17 (Engine reliability: interrupt resume, thread safety, AI scheduler, I/O surfacing)**
 
 Fixes for the stall/crash class of bugs found in end-to-end dashboard testing.
@@ -380,7 +397,7 @@ Fixes for the stall/crash class of bugs found in end-to-end dashboard testing.
 * I/O surfaced: ioToJson() was a placeholder returning []; it now serializes devices (state, waiting-process names, current request, per-device stats), buffers, spoolers and I/O statistics in the dashboard IOState shape; IOManager gains setDeviceError()/recoverDevice() backing the previously no-op /api/device/error and /api/device/recover endpoints (queued + in-flight requests fail and their owners are woken); RESET now resets the I/O manager so devices are re-created from a clean state
 * Missing definition: IOManager::getAllDevices() was declared but never defined (link gap exposed by the new serialization)
 * New tests: T-SCHED-017 (AI_ADAPTIVE scores the RUNNING process, preempts only past the threshold), T-SCHED-018 (FCFS -> RR -> PRIORITY -> AI_ADAPTIVE mid-run), test_io.cpp T-IO-001..003 (buffer states, device error fails queued requests and wakes owners, unknown-id rejection)
-* Full suite: 181 test cases / 996 assertions, all passing
+* Full suite: 183 test cases / 1021 assertions, all passing
 * Demo I/O activity (main.cpp): the workload programs now carry one SYSCALL IO_REQUEST instruction each (makeIoProgram; the per-PID payload is one-shot, so a second SYSCALL in the same program would be fatal per docs/05 section 4). Payloads: TextEditor/Compiler -> DISK writes (queue demo), MusicPlayer -> KEYBOARD read, Research agent -> NETWORK read, Coding agent -> PRINTER write. Processes visibly block on the device and wake on completion, so docs/14's IO_REQUEST / IO_COMPLETED event pair occurs in every demo run
 * New test: T-SC-008 (payload-driven IO_REQUEST blocks the caller, payload consumed, completion wakes it)
 * WebSocket-request wedge (ApiServer.cpp): cpp-httplib invokes pre_routing_handler_ twice for Upgrade: websocket requests when no native WS handler is registered (once before upgrade negotiation in write_response, then again inside routing()), so the naive engineMutex_->lock() in the pre hook self-deadlocked the connection thread with the mutex held: every subsequent REST call blocked (dashboard showed "Disconnected"), the sim loop blocked at its next tick, and Ctrl+C hung in ApiServer::stop() -> join(). The hook is now reentrancy-guarded with a thread_local ownership flag and WS upgrades skip the lock entirely (the /ws handler reads no engine state, and a future native WS handler would never reach the post hook to unlock). /ws now returns 426 Upgrade Required instead of a fabricated 101 handshake with a dummy accept key (browsers just logged handshake errors); the dashboard keeps polling (docs/13: WS is best-effort, polling is authoritative for "connected")
