@@ -47,7 +47,7 @@ Final Demo
 **Current Focus:**
 
 * Core OS implementation (M1: Foundation + M2: Stage I CPU/System Calls + M3: Paging + M4: Full Interrupt Manager + M5: Process Manager full features + M5-Scheduler + Mid-Review GUI + Week 6: Synchronization + IPC + Week 7: I/O Subsystem + Syscall Implementation + Week 8: AI Agent Layer) — **DONE**
-* C++ backend builds and the full test suite passes (180 test cases / 989 assertions, all passing)
+* C++ backend builds and the full test suite passes (181 test cases / 996 assertions, all passing)
 * GitHub repository confirmed and synced
 * Next: Integration scenarios and WebSocket event streaming
 
@@ -380,9 +380,11 @@ Fixes for the stall/crash class of bugs found in end-to-end dashboard testing.
 * I/O surfaced: ioToJson() was a placeholder returning []; it now serializes devices (state, waiting-process names, current request, per-device stats), buffers, spoolers and I/O statistics in the dashboard IOState shape; IOManager gains setDeviceError()/recoverDevice() backing the previously no-op /api/device/error and /api/device/recover endpoints (queued + in-flight requests fail and their owners are woken); RESET now resets the I/O manager so devices are re-created from a clean state
 * Missing definition: IOManager::getAllDevices() was declared but never defined (link gap exposed by the new serialization)
 * New tests: T-SCHED-017 (AI_ADAPTIVE scores the RUNNING process, preempts only past the threshold), T-SCHED-018 (FCFS -> RR -> PRIORITY -> AI_ADAPTIVE mid-run), test_io.cpp T-IO-001..003 (buffer states, device error fails queued requests and wakes owners, unknown-id rejection)
-* Full suite: 180 test cases / 989 assertions, all passing
+* Full suite: 181 test cases / 996 assertions, all passing
 * Demo I/O activity (main.cpp): the workload programs now carry one SYSCALL IO_REQUEST instruction each (makeIoProgram; the per-PID payload is one-shot, so a second SYSCALL in the same program would be fatal per docs/05 section 4). Payloads: TextEditor/Compiler -> DISK writes (queue demo), MusicPlayer -> KEYBOARD read, Research agent -> NETWORK read, Coding agent -> PRINTER write. Processes visibly block on the device and wake on completion, so docs/14's IO_REQUEST / IO_COMPLETED event pair occurs in every demo run
 * New test: T-SC-008 (payload-driven IO_REQUEST blocks the caller, payload consumed, completion wakes it)
+* WebSocket-request wedge (ApiServer.cpp): cpp-httplib invokes pre_routing_handler_ twice for Upgrade: websocket requests when no native WS handler is registered (once before upgrade negotiation in write_response, then again inside routing()), so the naive engineMutex_->lock() in the pre hook self-deadlocked the connection thread with the mutex held: every subsequent REST call blocked (dashboard showed "Disconnected"), the sim loop blocked at its next tick, and Ctrl+C hung in ApiServer::stop() -> join(). The hook is now reentrancy-guarded with a thread_local ownership flag and WS upgrades skip the lock entirely (the /ws handler reads no engine state, and a future native WS handler would never reach the post hook to unlock). /ws now returns 426 Upgrade Required instead of a fabricated 101 handshake with a dummy accept key (browsers just logged handshake errors); the dashboard keeps polling (docs/13: WS is best-effort, polling is authoritative for "connected")
+* New test: T-SRV-001 (starts ApiServer on a test port, sends a real WS upgrade handshake, asserts 426 + REST still answers + stop() completes; a regression hangs the test binary by design)
 * Note: the running server must be restarted to pick up the new binary; the .exe cannot be relinked while an instance is up
 
 **2026-11-17 (Test suite repair + AI Agent source committed)**

@@ -177,7 +177,8 @@ Next Recommended Step:
   * **I/O surfaced**: `GET /api/io` returns devices/buffers/spoolers/stats; device error/recover endpoints functional; `IOManager::getAllDevices()` definition added (was declared-only); RESET resets I/O
   * **Tests**: +5 (T-SCHED-017/018, test_io.cpp T-IO-001..003); full suite 179 test cases / 980 assertions, all passing
   * **Handoff note (Hari Jadhav, I/O):** device error/recover are now real — review `IOManager::setDeviceError()` wake-on-failure policy (blocked owners are woken because the simulator has no I/O error return channel)
-  * **Demo I/O:** every demo process issues one blocking IO_REQUEST (DISK×2 queue, KEYBOARD, NETWORK, PRINTER); payloads are one-shot per PID (docs/05), so programs carry exactly one SYSCALL instruction; T-SC-008 covers the syscall→block→wake path; suite now 180 cases / 989 assertions
+  * **Demo I/O:** every demo process issues one blocking IO_REQUEST (DISK×2 queue, KEYBOARD, NETWORK, PRINTER); payloads are one-shot per PID (docs/05), so programs carry exactly one SYSCALL instruction; T-SC-008 covers the syscall→block→wake path; suite now 181 cases / 996 assertions
+  * **WS-wedge fix (Pragati Jadhav, frontend-facing):** the dashboard's /ws handshake on page load deadlocked a connection thread while holding the engine mutex (httplib calls the pre-routing hook twice for upgrade requests), which made the whole REST API appear down and hung Ctrl+C. Upgrades now skip the engine lock, /ws answers 426 (frontend keeps polling — WS was already best-effort), and T-SRV-001 guards REST-liveness-after-WS and clean shutdown
 
 ## 2026-10-27
 
