@@ -50,6 +50,9 @@ public:
     // Simulation run-state control: START/PAUSE/STOP write this flag and the
     // host simulation loop reads it each tick (docs/13 sections 8-11).
     void setRunFlag(std::atomic<bool>* flag) { runFlag_ = flag; }
+    // Shared cycles-per-tick multiplier read by the host loop; SET_CLOCK_SPEED
+    // stores into it so the dashboard can speed the simulation up or down.
+    void setClockSpeedPtr(std::atomic<int>* speed) { clockSpeed_ = speed; }
     // RESET clears engine state; the hook re-creates the demo workload.
     void setResetHook(std::function<void()> hook) { resetHook_ = std::move(hook); }
 
@@ -110,6 +113,7 @@ private:
 
     // Simulation control shared with the host loop
     std::atomic<bool>* runFlag_ = nullptr;
+    std::atomic<int>* clockSpeed_ = nullptr;
     std::function<void()> resetHook_;
     std::mutex* engineMutex_ = nullptr;
 };

@@ -15,6 +15,7 @@
 #include "aios/sync/SynchronizationManager.hpp"
 #include "aios/server/ApiServer.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <csignal>
@@ -28,40 +29,38 @@ using namespace aios;
 
 static bool g_running = true;
 static std::atomic<bool> g_simRunning{false};
+// Cycles executed per 100 ms host tick; SET_CLOCK_SPEED stores into this
+// (1..10), so the dashboard can stretch or compress the demo timeline.
+static std::atomic<int> g_clockSpeed{1};
 
 void signalHandler(int) {
     g_running = false;
 }
 
-// Long-running demo program: N arithmetic instructions then HALT. At the
-// server's 10 cycles/s tick rate a 200-instruction process runs ~20 s, so the
-// dashboard shows live scheduling instead of an instant run-to-completion.
-static std::vector<int32_t> makeProgram(int instructions) {
+// Demo program with a bounded counted loop: `warmup` ADDs, one blocking DISK
+// write, then ADD/SUB/JZ/JMP cycling `loopCycles` times before HALT. The
+// process stays CPU-active for roughly 3*loopCycles cycles while the image
+// occupies only a few words, so the full demo workload fits the 64-frame
+// logical memory even after extra processes are added. The payload is
+// supplied per-PID via setSyscallPayload and consumed on first use, so
+// exactly one SYSCALL instruction may appear in the program - a second one
+// would reach handleIoRequest with an empty payload and is fatal
+// (docs/05 section 4).
+static std::vector<int32_t> makeLoopProgram(int warmup, uint64_t loopCycles) {
     std::vector<int32_t> prog;
-    prog.reserve(static_cast<size_t>(instructions) + 1);
-    for (int i = 0; i < instructions; ++i) {
-        prog.push_back(Instruction{Opcode::ADD, 1}.toWord());
-    }
-    prog.push_back(Instruction{Opcode::HALT, 0}.toWord());
-    return prog;
-}
-
-// Demonstration program that issues one blocking I/O syscall mid-run
-// (docs/05 section 6, docs/11): compute, IO_REQUEST, block until the device
-// completes, compute, HALT. The payload is supplied per-PID via
-// setSyscallPayload and consumed on first use, so exactly one SYSCALL
-// instruction may appear in the program - a second one would reach
-// handleIoRequest with an empty payload and is fatal (docs/05 section 4).
-static std::vector<int32_t> makeIoProgram(int instructions, int ioAfter) {
-    std::vector<int32_t> prog;
-    prog.reserve(static_cast<size_t>(instructions) + 2);
-    for (int i = 0; i < ioAfter; ++i) {
+    for (int i = 0; i < warmup; ++i) {
         prog.push_back(Instruction{Opcode::ADD, 1}.toWord());
     }
     prog.push_back(Instruction{Opcode::SYSCALL, SYSCALL_IO_REQUEST}.toWord());
-    for (int i = ioAfter; i < instructions; ++i) {
-        prog.push_back(Instruction{Opcode::ADD, 1}.toWord());
-    }
+    // Countdown loop: JZ tests the zero flag set by the SUB, so the decrement
+    // must run before the test. The body runs warmup + loopCycles - 1 times
+    // (~3 cycles/iteration) before the accumulator reaches zero and HALT runs.
+    const int32_t counter = static_cast<int32_t>(std::min<uint64_t>(loopCycles, OPERAND_MASK));
+    prog.push_back(Instruction{Opcode::ADD, counter}.toWord());
+    const int32_t loopStart = static_cast<int32_t>(prog.size());
+    prog.push_back(Instruction{Opcode::SUB, 1}.toWord());
+    prog.push_back(Instruction{Opcode::JZ, loopStart + 3}.toWord());
+    prog.push_back(Instruction{Opcode::JMP, loopStart}.toWord());
     prog.push_back(Instruction{Opcode::HALT, 0}.toWord());
     return prog;
 }
@@ -75,8 +74,8 @@ static std::vector<int32_t> makeIoProgram(int instructions, int ioAfter) {
 static void createDemoWorkload(ProcessManager& pm, AIAgentManager& aiAgents,
                                SynchronizationManager* sync, IPCManager* ipc,
                                IOManager* io, SystemCallManager* syscalls) {
-    const auto proc = makeIoProgram(200, 8);
-    const auto agent = makeIoProgram(150, 12);
+    const auto proc = makeLoopProgram(8, 100);
+    const auto agent = makeLoopProgram(12, 80);
 
     int p1 = pm.createProcess("TextEditor", 1, proc, 0);
     int p2 = pm.createProcess("Compiler", 2, proc, 0);
@@ -251,6 +250,7 @@ int main(int argc, char* argv[]) {
     apiServer.setSystemCallManager(systemCallManager.get());
     apiServer.setAIAgentManager(aiAgentManager.get());
     apiServer.setRunFlag(&g_simRunning);
+    apiServer.setClockSpeedPtr(&g_clockSpeed);
     apiServer.setResetHook([&]() {
         // Devices still hold queues from the previous run; recreate them so the
         // workload below starts from a clean I/O state.
@@ -299,18 +299,11 @@ int main(int argc, char* argv[]) {
     std::cout << "  GET  /api/events" << std::endl;
     std::cout << "  POST /api/command" << std::endl;
 
-    // Simulation loop: one simulated cycle per 100 ms wall-clock while the
-    // frontend has pressed Start (docs/13 sections 8-12). Pause/Stop freeze
-    // the loop without destroying state.
+    // Simulation loop: g_clockSpeed simulated cycles per 100 ms wall-clock
+    // while the frontend has pressed Start (docs/13 sections 8-12). Pause/Stop
+    // freeze the loop without destroying state.
     std::thread simLoop([&]() {
-        while (g_running) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            if (!g_simRunning.load()) {
-                continue;
-            }
-
-            std::lock_guard<std::mutex> lock(engineMutex);
-
+        auto runCycle = [&]() {
             clock->tick();
             timer->tick();
             ioManager->tick();
@@ -345,6 +338,19 @@ int main(int argc, char* argv[]) {
                         processManager->terminate(donePid);
                     }
                 }
+            }
+        };
+
+        while (g_running) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            if (!g_simRunning.load()) {
+                continue;
+            }
+
+            const int cycles = g_clockSpeed.load();
+            std::lock_guard<std::mutex> lock(engineMutex);
+            for (int i = 0; i < cycles && g_simRunning.load(); ++i) {
+                runCycle();
             }
         }
     });

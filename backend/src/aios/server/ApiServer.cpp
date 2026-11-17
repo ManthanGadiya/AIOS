@@ -2,18 +2,31 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <iostream>
 #include <sstream>
 
 namespace aios {
 
-// Helper to create demo agent program
-static std::vector<int32_t> makeProgram(int instructions) {
+// Demo program with a bounded counted loop: `warmup` ADDs, one blocking DISK
+// write, then ADD/SUB/JZ/JMP cycling `loopCycles` times before HALT. Runs for
+// roughly 3*loopCycles cycles while occupying only a few words, which keeps
+// the whole demo workload resident in the 64-frame logical memory.
+static std::vector<int32_t> makeLoopProgram(int warmup, uint64_t loopCycles) {
     std::vector<int32_t> prog;
-    prog.reserve(static_cast<size_t>(instructions) + 1);
-    for (int i = 0; i < instructions; ++i) {
+    for (int i = 0; i < warmup; ++i) {
         prog.push_back(Instruction{Opcode::ADD, 1}.toWord());
     }
+    prog.push_back(Instruction{Opcode::SYSCALL, SYSCALL_IO_REQUEST}.toWord());
+    // Countdown loop: JZ tests the zero flag set by the SUB, so the decrement
+    // must run before the test. The body runs warmup + loopCycles - 1 times
+    // (~3 cycles/iteration) before the accumulator reaches zero and HALT runs.
+    const int32_t counter = static_cast<int32_t>(std::min<uint64_t>(loopCycles, OPERAND_MASK));
+    prog.push_back(Instruction{Opcode::ADD, counter}.toWord());
+    const int32_t loopStart = static_cast<int32_t>(prog.size());
+    prog.push_back(Instruction{Opcode::SUB, 1}.toWord());
+    prog.push_back(Instruction{Opcode::JZ, loopStart + 3}.toWord());
+    prog.push_back(Instruction{Opcode::JMP, loopStart}.toWord());
     prog.push_back(Instruction{Opcode::HALT, 0}.toWord());
     return prog;
 }
@@ -99,7 +112,9 @@ json ApiServer::processToJson(const ProcessControlBlock* pcb) const {
     }
     j["state"] = stateStr;
     j["priority"] = pcb->priority;
-    j["memory"] = pcb->programSize / 1024; // KB approximation
+    // programSize in words; memory footprint in KB (4 bytes/word, one decimal).
+    j["programSize"] = pcb->programSize;
+    j["memory"] = std::round(static_cast<double>(pcb->programSize) * 4.0 / 1024.0 * 10.0) / 10.0;
     j["cpuTime"] = pcb->cpuTime;
     j["readySinceCycle"] = pcb->readySinceCycle;
     j["waitingTime"] = pcb->waitingTime;
@@ -107,10 +122,33 @@ json ApiServer::processToJson(const ProcessControlBlock* pcb) const {
     j["pageFaultCount"] = 0; // Not directly tracked in PCB
     
     if (pcb->type == ProcessType::AI_AGENT) {
-        j["agentId"] = "A" + std::to_string(pcb->pid);
-        j["task"] = "Simulated Task";
-        j["tokenUsage"] = json{{"used", 0}, {"budget", 1000}};
-        j["permissions"] = json{{"READ_DATA", true}, {"SEARCH", true}, {"WRITE_CODE", false}};
+        // Identity, quotas and permissions live in the AI Agent Manager
+        // metadata. The dashboard keys checkpoint/recover/fail actions by
+        // this agentId, so it must match what /api/agents/detail reports.
+        std::optional<AgentMetadata> meta;
+        if (aiAgents_) {
+            meta = aiAgents_->getAgentByPid(pcb->pid);
+        }
+        if (meta) {
+            j["agentId"] = meta->agentId;
+            j["task"] = agentTypeToString(meta->type) + " task";
+            j["tokenUsage"] = json{{"used", meta->tokenUsed}, {"budget", meta->tokenBudget}};
+            json perms = json{{"READ_DATA", false}, {"SEARCH", false},
+                              {"WRITE_CODE", false}, {"EXECUTE", false}};
+            for (const auto perm : meta->permissions) {
+                perms[toolPermissionToString(perm)] = true;
+            }
+            j["permissions"] = perms;
+            j["agentState"] = agentStateToString(meta->agentState);
+            j["checkpointCount"] = meta->checkpointCount;
+            j["failureCount"] = meta->failureCount;
+        } else {
+            j["agentId"] = "";
+            j["task"] = "";
+            j["tokenUsage"] = json{{"used", 0}, {"budget", 0}};
+            j["permissions"] = json{{"READ_DATA", false}, {"SEARCH", false},
+                                    {"WRITE_CODE", false}, {"EXECUTE", false}};
+        }
     }
     
     return j;
@@ -681,32 +719,45 @@ void ApiServer::setupRoutes() {
                 if (targetCount < 1 || targetCount > 10) {
                     error = "Process count must be between 1 and 10";
                 } else if (pm_ && cpu_ && clock_ && log_ && sched_ && mm_) {
-                    // Count existing NORMAL processes
-                    std::vector<int> normalPids;
+                    // Count CPU-live NORMAL processes: terminated/failed ones
+                    // keep their PCB but no longer occupy a slot, so re-setting
+                    // the count after a demo run spins up fresh work again.
+                    std::vector<int> alive;
                     for (int pid = 0; pid < 256; ++pid) {
                         auto* pcb = pm_->getProcess(pid);
-                        if (pcb && pcb->type == ProcessType::NORMAL) {
-                            normalPids.push_back(pid);
+                        if (pcb && pcb->type == ProcessType::NORMAL &&
+                            pcb->state != ProcessState::TERMINATED &&
+                            pcb->state != ProcessState::FAILED) {
+                            alive.push_back(pid);
                         }
                     }
-                    int currentCount = static_cast<int>(normalPids.size());
+                    const int currentCount = static_cast<int>(alive.size());
                     
                     if (targetCount > currentCount) {
-                        // Create additional processes
+                        // Create additional processes with demo-friendly names;
+                        // each writes to DISK once so several requests queue up
+                        // on the device while the loop body keeps it on-CPU.
+                        static const char* kNames[] = {"Spreadsheet", "Browser", "VideoPlayer",
+                                                       "Terminal", "Database", "ChatApp",
+                                                       "Backup"};
+                        constexpr int kNameCount = 7;
                         for (int i = currentCount; i < targetCount; ++i) {
-                            std::string name = "P" + std::to_string(i + 1);
-                            const auto prog = makeProgram(100);
+                            const std::string name = kNames[i % kNameCount];
+                            const auto prog = makeLoopProgram(6, 40);
                             int pid = pm_->createProcess(name, 1, prog, 0, ProcessType::NORMAL);
                             if (pid != INVALID_PID) {
+                                if (syscalls_) {
+                                    syscalls_->setSyscallPayload(pid, "DISK:1:" + name + "-save");
+                                }
                                 pm_->admit(pid);
                             }
                         }
                         success = true;
                     } else if (targetCount < currentCount) {
                         // Terminate excess processes (highest PIDs first)
-                        std::sort(normalPids.begin(), normalPids.end(), std::greater<int>());
+                        std::sort(alive.begin(), alive.end(), std::greater<int>());
                         for (int i = 0; i < currentCount - targetCount; ++i) {
-                            pm_->terminate(normalPids[i]);
+                            pm_->terminate(alive[i]);
                         }
                         success = true;
                     } else {
@@ -720,8 +771,11 @@ void ApiServer::setupRoutes() {
                 if (speed < 1 || speed > 10) {
                     error = "Clock speed must be between 1 and 10";
                 } else {
-                    // Clock speed is handled in the sim loop (main.cpp); runtime change not yet wired.
-                    // Accept the command for UI compatibility.
+                    // The host loop runs `speed` simulated cycles per 100 ms
+                    // tick (main.cpp), i.e. 10*speed cycles per second.
+                    if (clockSpeed_) {
+                        clockSpeed_->store(speed);
+                    }
                     success = true;
                 }
             } else if (command == "SET_QUANTUM") {
@@ -1100,74 +1154,6 @@ void ApiServer::setupRoutes() {
             res.status = 400;
             res.set_content(json{{"success", false}, {"error", e.what()}}.dump(), "application/json");
         }
-    });
-    
-    // State endpoints
-    server_.Get("/api/statistics", [this](const httplib::Request&, httplib::Response& res) {
-        res.set_content(statisticsToJson().dump(), "application/json");
-    });
-    
-    server_.Get("/api/processes", [this](const httplib::Request&, httplib::Response& res) {
-        json arr = json::array();
-        if (pm_) {
-            for (int pid = 0; pid < 256; ++pid) {
-                auto* pcb = pm_->getProcess(pid);
-                if (pcb && pcb->type == ProcessType::NORMAL) {
-                    arr.push_back(processToJson(pcb));
-                }
-            }
-        }
-        res.set_content(arr.dump(), "application/json");
-    });
-    
-    server_.Get("/api/agents", [this](const httplib::Request&, httplib::Response& res) {
-        json arr = json::array();
-        if (pm_) {
-            for (int pid = 0; pid < 256; ++pid) {
-                auto* pcb = pm_->getProcess(pid);
-                if (pcb && pcb->type == ProcessType::AI_AGENT) {
-                    arr.push_back(agentToJson(pcb));
-                }
-            }
-        }
-        res.set_content(arr.dump(), "application/json");
-    });
-    
-    server_.Get("/api/cpu", [this](const httplib::Request&, httplib::Response& res) {
-        res.set_content(cpuToJson().dump(), "application/json");
-    });
-    
-    server_.Get("/api/memory", [this](const httplib::Request&, httplib::Response& res) {
-        res.set_content(memoryToJson().dump(), "application/json");
-    });
-    
-    server_.Get("/api/scheduler", [this](const httplib::Request&, httplib::Response& res) {
-        res.set_content(schedulerToJson().dump(), "application/json");
-    });
-    
-    server_.Get("/api/interrupts", [this](const httplib::Request&, httplib::Response& res) {
-        res.set_content(interruptsToJson().dump(), "application/json");
-    });
-    
-    server_.Get("/api/events", [this](const httplib::Request&, httplib::Response& res) {
-        res.set_content(eventsToJson(100).dump(), "application/json");
-    });
-    
-    // New endpoints for Sync + IPC
-    server_.Get("/api/ipc", [this](const httplib::Request&, httplib::Response& res) {
-        res.set_content(ipcToJson().dump(), "application/json");
-    });
-    
-    server_.Get("/api/mutexes", [this](const httplib::Request&, httplib::Response& res) {
-        res.set_content(mutexesToJson().dump(), "application/json");
-    });
-    
-    server_.Get("/api/semaphores", [this](const httplib::Request&, httplib::Response& res) {
-        res.set_content(semaphoresToJson().dump(), "application/json");
-    });
-    
-    server_.Get("/api/io", [this](const httplib::Request&, httplib::Response& res) {
-        res.set_content(ioToJson().dump(), "application/json");
     });
     
     // I/O Commands
@@ -1556,6 +1542,26 @@ void ApiServer::setupRoutes() {
                 return;
             }
 
+            // Optional permission grant list, e.g. ["READ_DATA","WRITE_CODE"].
+            // Unknown names are rejected so a typo cannot silently drop a grant.
+            std::vector<ToolPermission> permissions;
+            if (body.contains("permissions") && body["permissions"].is_array()) {
+                for (const auto& entry : body["permissions"]) {
+                    const std::string p = entry.get<std::string>();
+                    if (p == "READ_DATA") permissions.push_back(ToolPermission::READ_DATA);
+                    else if (p == "SEARCH") permissions.push_back(ToolPermission::SEARCH);
+                    else if (p == "WRITE_CODE") permissions.push_back(ToolPermission::WRITE_CODE);
+                    else if (p == "EXECUTE") permissions.push_back(ToolPermission::EXECUTE);
+                    else {
+                        res.status = 400;
+                        res.set_content(json{{"success", false},
+                                             {"error", "Unknown permission: " + p}}.dump(),
+                                        "application/json");
+                        return;
+                    }
+                }
+            }
+
             if (!aiAgents_) {
                 res.status = 503;
                 res.set_content(json{{"success", false}, {"error", "AI Agent Manager not initialized"}}.dump(), "application/json");
@@ -1563,8 +1569,9 @@ void ApiServer::setupRoutes() {
             }
 
             AgentType type = (typeStr == "CODING") ? AgentType::CODING : AgentType::RESEARCH;
-            const auto agentProg = makeProgram(150);
-            int pid = aiAgents_->createAgent(name, type, priority, agentProg, 0, tokenBudget);
+            const auto agentProg = makeLoopProgram(12, 80);
+            int pid = aiAgents_->createAgent(name, type, priority, agentProg, 0, tokenBudget,
+                                             permissions);
             bool success = pid != INVALID_PID;
             if (success && pm_) {
                 pm_->admit(pid);
