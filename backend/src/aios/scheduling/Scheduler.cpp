@@ -44,26 +44,31 @@ std::vector<int> Scheduler::readyQueue() const {
 // (docs/12 section 15, 16)
 double Scheduler::calculateAIScore(int pid) const {
     if (!processes_) return 0.0;
-    
+
     const auto* pcb = processes_->getProcess(pid);
-    if (!pcb || pcb->state != ProcessState::READY) {
+    if (!pcb) {
         return -1.0;
     }
-    
+
+    // A RUNNING process is scored too: the adaptive policy compares its score
+    // against the best READY candidate to decide whether to preempt (docs/08
+    // section 3). Its waiting contribution is zero — it is not queued.
     double score = 0.0;
     std::ostringstream reason;
-    
+
     // Priority Contribution (0-20 range, scaled)
     double priorityContrib = static_cast<double>(pcb->priority) * 2.0;
     score += priorityContrib;
     reason << "+ Priority(" << pcb->priority << "=" << priorityContrib << ")";
-    
+
     // Waiting Contribution (time in READY queue)
     uint64_t waitingCycles = 0;
-    if (pcb->inReadyQueue && clock_) {
-        waitingCycles = clock_->cycle() - pcb->readySinceCycle;
-    } else {
-        waitingCycles = pcb->waitingTime;
+    if (pcb->state == ProcessState::READY) {
+        if (pcb->inReadyQueue && clock_) {
+            waitingCycles = clock_->cycle() - pcb->readySinceCycle;
+        } else {
+            waitingCycles = pcb->waitingTime;
+        }
     }
     double waitingContrib = std::min(static_cast<double>(waitingCycles) * 0.5, 20.0);
     score += waitingContrib;
@@ -118,31 +123,23 @@ int Scheduler::pickAIAdaptive() {
     }
     
     int bestPid = INVALID_PID;
-    double bestScore = -1.0;
-    std::string bestReason;
-    
+    double bestScore = 0.0;
+
     for (int pid : readyOrder_) {
         const auto* pcb = processes_ ? processes_->getProcess(pid) : nullptr;
         if (!pcb || pcb->state != ProcessState::READY) {
             continue;
         }
-        
-        double score = calculateAIScore(pid);
-        if (score > bestScore) {
+
+        // Initialize on the first candidate: scores can legitimately be
+        // negative, so a numeric sentinel would shadow them.
+        const double score = calculateAIScore(pid);
+        if (bestPid == INVALID_PID || score > bestScore) {
             bestScore = score;
             bestPid = pid;
-            // Build reason string
-            std::ostringstream reason;
-            reason << "AI score=" << std::fixed << std::setprecision(1) << score;
-            bestReason = reason.str();
         }
     }
-    
-    // Store the reason for the selected process
-    if (bestPid != INVALID_PID) {
-        // We'll pass the reason through dispatchSelected
-    }
-    
+
     return bestPid;
 }
 

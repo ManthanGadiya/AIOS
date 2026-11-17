@@ -303,3 +303,71 @@ TEST_CASE("T-SCHED-016: TIMER interrupt drives Round Robin through the interrupt
     CHECK(h.pm.runningPid() == p2);
     CHECK(h.sched.contextSwitchCount() == 2);
 }
+
+TEST_CASE("T-SCHED-017: AI_ADAPTIVE scores the RUNNING process and only preempts past the threshold") {
+    Harness h;
+    h.sched.setPolicy(SchedulingPolicy::AI_ADAPTIVE);
+    const int p1 = h.create("p1", 3);
+    const int p2 = h.create("p2", 3);
+    REQUIRE(h.pm.admit(p1));
+    REQUIRE(h.pm.admit(p2));
+
+    // Tie on priority: the first READY process is selected.
+    CHECK(h.sched.schedule() == p1);
+
+    // p2 accumulates 3.0 waiting score (6 ticks x 0.5): 6 + 3 = 9, which is
+    // not more than the RUNNING score (6) + 5, so the scheduler must NOT
+    // thrash — the old -1.0 sentinel for RUNNING preempted here every cycle.
+    for (int i = 0; i < 6; ++i) {
+        h.clock.tick();
+    }
+    CHECK(h.sched.schedule() == p1);
+    CHECK(h.pm.runningPid() == p1);
+    CHECK(h.sched.contextSwitchCount() == 1);
+
+    // After 20 more ticks p2's waiting contribution (capped at 20.0) puts it
+    // clearly above p1 + threshold, so the adaptive policy preempts.
+    for (int i = 0; i < 20; ++i) {
+        h.clock.tick();
+    }
+    CHECK(h.sched.schedule() == p2);
+    CHECK(h.pm.runningPid() == p2);
+    CHECK(h.sched.contextSwitchCount() == 2);
+}
+
+TEST_CASE("T-SCHED-018: changing policy mid-run keeps scheduler state consistent") {
+    Harness h;
+    h.sched.setPolicy(SchedulingPolicy::FCFS);
+    const int p1 = h.create("p1", 0);
+    const int p2 = h.create("p2", 0);
+    REQUIRE(h.pm.admit(p1));
+    REQUIRE(h.pm.admit(p2));
+    REQUIRE(h.sched.schedule() == p1);
+
+    // FCFS -> ROUND_ROBIN while p1 runs: the running process is kept and the
+    // stale ready order is rebuilt by reconcile() (no dangling pids).
+    h.sched.setPolicy(SchedulingPolicy::ROUND_ROBIN);
+    CHECK(h.sched.policy() == SchedulingPolicy::ROUND_ROBIN);
+    CHECK(h.sched.schedule() == p1);
+    CHECK(h.pm.runningPid() == p1);
+    CHECK(h.sched.onTimeQuantumExpired() == p2);
+    const auto ready = h.sched.readyQueue();
+    REQUIRE(ready.size() == 1);
+    CHECK(ready.front() == p1);
+
+    // ROUND_ROBIN -> PRIORITY while p2 runs: a higher-priority arrival
+    // preempts on the next schedule() call.
+    h.sched.setPolicy(SchedulingPolicy::PRIORITY);
+    const int p3 = h.create("p3", 5);
+    REQUIRE(h.pm.admit(p3));
+    CHECK(h.sched.schedule() == p3);
+    CHECK(h.pm.runningPid() == p3);
+
+    // PRIORITY -> AI_ADAPTIVE mid-run: selection still works and the running
+    // process (priority 5, score 10) is far enough ahead not to be preempted.
+    h.sched.setPolicy(SchedulingPolicy::AI_ADAPTIVE);
+    CHECK(h.sched.policy() == SchedulingPolicy::AI_ADAPTIVE);
+    CHECK(h.sched.schedule() == p3);
+    CHECK(h.pm.runningPid() == p3);
+    CHECK(h.sched.decisionCount() >= 3);
+}
