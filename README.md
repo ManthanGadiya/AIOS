@@ -653,7 +653,7 @@ Detailed history belongs in STATUS.md.
 * **IPC** — IPCMessage (id, sender/receiver PID, type, payload, timestamp), MessageQueue (FIFO, capacity limit, blocking/non-blocking receive), IPCManager (channels, send/receive, allow/deny permission lists, statistics), process cleanup (removes messages addressed to terminated process), agent communication patterns (research→coding, task request/response), per-process statistics, reset
 * **New Event Types** — MUTEX_CREATED/LOCKED/UNLOCKED, PROCESS_BLOCKED_ON_MUTEX/WAKEUP, SEMAPHORE_CREATED/WAIT/SIGNAL, DEADLOCK_DETECTED, SYNCHRONIZATION_ERROR, IPC_CHANNEL_CREATED, IPC_SEND/RECEIVE, IPC_MESSAGE_QUEUED/DELIVERED, IPC_QUEUE_FULL, IPC_PERMISSION_DENIED, IPC_ERROR
 * **New System Calls** — SYSCALL_LOCK=7, UNLOCK=8, WAIT=9, SIGNAL=10, IPC_RECEIVE=11 (stubs returning UNSUPPORTED)
-* **Full test coverage** — 174 test cases, 173 passing (1 test expectation mismatch: T-IPC-017 expects default-deny after reset, implementation correctly uses default-allow)
+* **Full test coverage** — 174 test cases / 924 assertions, all passing (sync harness, IPC reset semantics and syscall expectations repaired on 2026-11-17)
 
 **Implemented (Week 7 — I/O Subsystem + Syscall Implementation):**
 

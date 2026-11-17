@@ -47,7 +47,7 @@ Final Demo
 **Current Focus:**
 
 * Core OS implementation (M1: Foundation + M2: Stage I CPU/System Calls + M3: Paging + M4: Full Interrupt Manager + M5: Process Manager full features + M5-Scheduler + Mid-Review GUI + Week 6: Synchronization + IPC + Week 7: I/O Subsystem + Syscall Implementation + Week 8: AI Agent Layer) — **DONE**
-* C++ backend builds and tests pass (174 test cases / 914 assertions, 173 passing)
+* C++ backend builds and the full test suite passes (174 test cases / 924 assertions, all passing)
 * GitHub repository confirmed and synced
 * Next: Integration scenarios and WebSocket event streaming
 
@@ -368,6 +368,16 @@ Meaningful commit created
 ---
 
 # 13. Latest Meaningful Change
+
+**2026-11-17 (Test suite repair + AI Agent source committed)**
+
+The test suite is green again and the repository builds from a fresh clone.
+
+* T-SYNC-014/015 segfault fix: the SyncHarness never created processes, so getProcess(pid) returned nullptr; the harness now wires Memory + CPU and creates/admits the processes so block/wake exercise the real ProcessManager state machine
+* T-IPC-017: reset expectation corrected — reset clears explicit grants/denies and the manager returns to its documented default-allow policy (docs/10 section 27)
+* T-SC-006: stale expectations corrected — IPC_SEND without payload returns INVALID, with payload UNSUPPORTED; IO_REQUEST without an I/O manager returns ERR
+* Full suite: 174 test cases / 924 assertions, all passing (was: 2 segfaults + 3 assertion failures)
+* backend/src/aios/agent/AIAgentManager.cpp is now version-controlled (it was untracked, so a fresh clone could not build)
 
 **2026-08-22 (Mid-review GUI fixes)**
 
