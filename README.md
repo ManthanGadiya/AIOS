@@ -653,7 +653,7 @@ Detailed history belongs in STATUS.md.
 * **IPC** — IPCMessage (id, sender/receiver PID, type, payload, timestamp), MessageQueue (FIFO, capacity limit, blocking/non-blocking receive), IPCManager (channels, send/receive, allow/deny permission lists, statistics), process cleanup (removes messages addressed to terminated process), agent communication patterns (research→coding, task request/response), per-process statistics, reset
 * **New Event Types** — MUTEX_CREATED/LOCKED/UNLOCKED, PROCESS_BLOCKED_ON_MUTEX/WAKEUP, SEMAPHORE_CREATED/WAIT/SIGNAL, DEADLOCK_DETECTED, SYNCHRONIZATION_ERROR, IPC_CHANNEL_CREATED, IPC_SEND/RECEIVE, IPC_MESSAGE_QUEUED/DELIVERED, IPC_QUEUE_FULL, IPC_PERMISSION_DENIED, IPC_ERROR
 * **New System Calls** — SYSCALL_LOCK=7, UNLOCK=8, WAIT=9, SIGNAL=10, IPC_RECEIVE=11 (stubs returning UNSUPPORTED)
-* **Full test coverage** — 181 test cases / 996 assertions, all passing (sync harness, IPC reset semantics and syscall expectations repaired on 2026-11-17; scheduler AI-scoring/policy-change, I/O device-error, syscall-driven I/O and WS-upgrade server tests added)
+* **Full test coverage** � 183 test cases / 1021 assertions, all passing (2026-11-17: scheduler AI-scoring/policy-change, I/O device-error, syscall-driven I/O, WS-upgrade server tests, plus T-PROC-010 context-save-on-block and T-IO-004 queued-request-drain regressions)
 
 **Implemented (Week 7 — I/O Subsystem + Syscall Implementation):**
 
