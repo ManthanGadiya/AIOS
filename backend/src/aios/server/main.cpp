@@ -20,6 +20,7 @@
 #include <csignal>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <thread>
 #include <vector>
 
@@ -197,6 +198,11 @@ int main(int argc, char* argv[]) {
 
     // Create API Server
     ApiServer apiServer(port);
+    // One engine mutex serializes the simulation loop against every HTTP
+    // handler: without it a mid-run scheduler change (or any dashboard read)
+    // races the sim thread inside the managers and crashes (docs/13).
+    std::mutex engineMutex;
+    apiServer.setEngineMutex(&engineMutex);
     apiServer.setProcessManager(processManager.get());
     apiServer.setMemory(memory.get());
     apiServer.setMemoryManager(memManager.get());
@@ -212,6 +218,9 @@ int main(int argc, char* argv[]) {
     apiServer.setAIAgentManager(aiAgentManager.get());
     apiServer.setRunFlag(&g_simRunning);
     apiServer.setResetHook([&]() {
+        // Devices still hold queues from the previous run; recreate them so the
+        // workload below starts from a clean I/O state.
+        if (ioManager) ioManager->reset();
         createDemoWorkload(*processManager, *aiAgentManager, syncManager.get(), ipcManager.get(), ioManager.get());
     });
 
@@ -266,6 +275,8 @@ int main(int argc, char* argv[]) {
                 continue;
             }
 
+            std::lock_guard<std::mutex> lock(engineMutex);
+
             clock->tick();
             timer->tick();
             ioManager->tick();
@@ -273,22 +284,32 @@ int main(int argc, char* argv[]) {
             // Service interrupts (timer -> RR preemption via the scheduler hook)
             interruptManager->serviceNextInterrupt();
 
-            // Schedule when the CPU is free; execute one instruction otherwise.
-            if (cpu->currentProcess() == INVALID_PID) {
-                const int nextPid = scheduler->schedule();
-                if (nextPid != INVALID_PID && nextPid != cpu->currentProcess()) {
-                    processManager->dispatch(nextPid);
-                }
-            } else if (!cpu->isHalted()) {
-                cpu->executeCycle();
-            } else {
-                // HALT finished the process normally (TERMINATED); a CPU error
-                // halt is unrecoverable and maps to FAILED instead (docs/06).
-                const int donePid = cpu->currentProcess();
-                if (cpu->registers().flags.error) {
-                    processManager->markFailed(donePid);
+            // A serviced PAGE_FAULT/SYSCALL leaves the CPU INTERRUPTED: the OS
+            // resumes it so the faulting instruction is retried (docs/05,
+            // docs/07 section 16). A handler that blocked or terminated the
+            // process already released the CPU, so resume() is a no-op then.
+            if (cpu->state() == CpuState::INTERRUPTED) {
+                cpu->resume();
+            }
+
+            // Schedule every cycle, not only when idle: the preemptive
+            // policies (PRIORITY, AI_ADAPTIVE) only see newly-ready processes
+            // here (docs/08 section 11).
+            scheduler->schedule();
+
+            if (cpu->currentProcess() != INVALID_PID) {
+                if (!cpu->isHalted()) {
+                    cpu->executeCycle();
                 } else {
-                    processManager->terminate(donePid);
+                    // HALT finished the process normally (TERMINATED); a CPU
+                    // error halt is unrecoverable and maps to FAILED instead
+                    // (docs/06).
+                    const int donePid = cpu->currentProcess();
+                    if (cpu->registers().flags.error) {
+                        processManager->markFailed(donePid);
+                    } else {
+                        processManager->terminate(donePid);
+                    }
                 }
             }
         }

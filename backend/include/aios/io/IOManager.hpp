@@ -219,6 +219,12 @@ public:
     std::vector<std::string> listDevices() const;
     size_t deviceCount() const { return devices_.size(); }
 
+    // Inject/recover a simulated device failure (docs/11 sections 85-98).
+    // Resolves to false when the device id is unknown. Requests queued on a
+    // failing device are failed and their owners woken.
+    bool setDeviceError(const std::string& id, const std::string& reason);
+    bool recoverDevice(const std::string& id);
+
     // ----- I/O Request Operations (docs/11 sections 6, 8) -----
     // Returns request ID on success, INVALID_PID on failure
     int requestIO(int pid, const std::string& deviceId, IOOperation op, const std::string& data = "");

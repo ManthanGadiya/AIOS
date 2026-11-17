@@ -15,6 +15,7 @@ add_executable(aios_tests
     test_interrupt.cpp
     test_scheduler.cpp
     test_ipc.cpp
+    test_io.cpp
 )
 
 target_include_directories(aios_tests PRIVATE

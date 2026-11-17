@@ -255,6 +255,57 @@ std::vector<std::string> IOManager::listDevices() const {
     return ids;
 }
 
+std::vector<Device> IOManager::getAllDevices() const {
+    std::vector<Device> all;
+    all.reserve(devices_.size());
+    for (const auto& [id, dev] : devices_) {
+        all.push_back(dev);
+    }
+    return all;
+}
+
+bool IOManager::setDeviceError(const std::string& id, const std::string& reason) {
+    auto it = devices_.find(id);
+    if (it == devices_.end()) {
+        return false;
+    }
+    Device& device = it->second;
+    // Requests already on the device cannot complete: fail them and wake
+    // their owners so they are not stranded in WAITING (docs/11). The
+    // in-flight request lives in currentRequest_; setError() discards it.
+    if (const auto& current = device.currentRequest()) {
+        stats_.failedRequests++;
+        record(EventType::IO_ERROR, current->pid,
+               "Device " + id + " failed: " + reason);
+        if (processes_) {
+            processes_->wakeProcess(current->pid);
+        }
+    }
+    for (const auto& req : device.queue()) {
+        stats_.failedRequests++;
+        record(EventType::IO_ERROR, req.pid,
+               "Device " + id + " failed: " + reason);
+        if (processes_) {
+            processes_->wakeProcess(req.pid);
+        }
+    }
+    while (device.dequeueRequest().has_value()) {
+    }
+    device.setError(reason);
+    record(EventType::IO_ERROR, INVALID_PID, "Device " + id + " error: " + reason);
+    return true;
+}
+
+bool IOManager::recoverDevice(const std::string& id) {
+    auto it = devices_.find(id);
+    if (it == devices_.end()) {
+        return false;
+    }
+    it->second.recover();
+    record(EventType::IO_COMPLETE, INVALID_PID, "Device " + id + " recovered");
+    return true;
+}
+
 int IOManager::requestIO(int pid, const std::string& deviceId, IOOperation op, const std::string& data) {
     auto it = devices_.find(deviceId);
     if (it == devices_.end()) {

@@ -19,6 +19,7 @@
 #include <atomic>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -51,6 +52,11 @@ public:
     void setRunFlag(std::atomic<bool>* flag) { runFlag_ = flag; }
     // RESET clears engine state; the hook re-creates the demo workload.
     void setResetHook(std::function<void()> hook) { resetHook_ = std::move(hook); }
+
+    // The engine is owned by the host simulation loop; every request handler
+    // runs under this mutex so dashboard reads and commands never race the
+    // sim thread inside the managers (docs/13).
+    void setEngineMutex(std::mutex* mutex) { engineMutex_ = mutex; }
 
     void start();
     void stop();
@@ -105,6 +111,7 @@ private:
     // Simulation control shared with the host loop
     std::atomic<bool>* runFlag_ = nullptr;
     std::function<void()> resetHook_;
+    std::mutex* engineMutex_ = nullptr;
 };
 
 } // namespace aios

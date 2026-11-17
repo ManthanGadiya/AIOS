@@ -487,12 +487,118 @@ json ApiServer::semaphoresToJson() const {
 }
 
 json ApiServer::ioToJson() const {
-    // Placeholder for I/O subsystem (Week 7)
-    json arr = json::array();
-    return arr;
+    // Shape matches the dashboard's IOState (frontend types/os.ts): devices,
+    // buffers and spoolers. Extra detail fields are additive.
+    json j;
+    j["devices"] = json::array();
+    j["buffers"] = json::array();
+    j["spoolers"] = json::array();
+    if (!io_) {
+        return j;
+    }
+
+    auto processName = [this](int pid) -> std::string {
+        if (pm_) {
+            const auto* pcb = pm_->getProcess(pid);
+            if (pcb) {
+                return pcb->name;
+            }
+        }
+        return "P" + std::to_string(pid);
+    };
+
+    for (const auto& device : io_->getAllDevices()) {
+        json d;
+        d["id"] = device.id();
+        d["name"] = device.id();
+        d["type"] = deviceTypeToString(device.type());
+        d["state"] = deviceStateToString(device.state());
+        d["processingTimeCycles"] = device.processingTimeCycles();
+        d["currentProcessingCycle"] = device.currentProcessingCycle();
+
+        // Waiting processes by name — the dashboard renders this list as-is.
+        json queue = json::array();
+        for (const auto& req : device.queue()) {
+            queue.push_back(processName(req.pid));
+        }
+        d["queue"] = std::move(queue);
+
+        json queueDetail = json::array();
+        for (const auto& req : device.queue()) {
+            queueDetail.push_back(json{{"requestId", req.id},
+                                       {"pid", req.pid},
+                                       {"operation", ioOperationToString(req.operation)}});
+        }
+        d["queueDetail"] = std::move(queueDetail);
+
+        if (const auto& current = device.currentRequest()) {
+            d["currentRequest"] = json{{"requestId", current->id},
+                                       {"pid", current->pid},
+                                       {"operation", ioOperationToString(current->operation)}};
+        } else {
+            d["currentRequest"] = nullptr;
+        }
+
+        d["statistics"] = json{{"completedRequests", device.completedRequests()},
+                               {"failedRequests", device.failedRequests()},
+                               {"totalProcessingCycles", device.totalProcessingCycles()}};
+
+        j["devices"].push_back(std::move(d));
+
+        // Spooler view for this device (docs/11 sections 26-29).
+        json spoolQueue = json::array();
+        for (const auto& job : io_->getSpoolQueue(device.id())) {
+            spoolQueue.push_back("job#" + std::to_string(job.id) + " pid=" +
+                                 std::to_string(job.ownerPid) + " " +
+                                 ioOperationToString(job.operation) + " " + job.status);
+        }
+        j["spoolers"].push_back(json{{"deviceName", device.id()},
+                                     {"queue", std::move(spoolQueue)},
+                                     {"active", device.state() == DeviceState::BUSY}});
+    }
+
+    for (const auto& id : io_->listBuffers()) {
+        const auto buffer = io_->getBuffer(id);
+        if (!buffer) {
+            continue;
+        }
+        j["buffers"].push_back(json{{"name", buffer->id()},
+                                    {"id", buffer->id()},
+                                    {"capacity", buffer->capacity()},
+                                    {"used", buffer->size()},
+                                    {"state", bufferStateToString(buffer->state())}});
+    }
+
+    const auto stats = io_->getStatistics();
+    j["statistics"] = json{{"totalRequests", stats.totalRequests},
+                           {"completedRequests", stats.completedRequests},
+                           {"failedRequests", stats.failedRequests},
+                           {"ioInterrupts", stats.ioInterrupts},
+                           {"bufferFullEvents", stats.bufferFullEvents},
+                           {"bufferEmptyEvents", stats.bufferEmptyEvents},
+                           {"spoolJobsCreated", stats.spoolJobsCreated},
+                           {"spoolJobsCompleted", stats.spoolJobsCompleted}};
+
+    return j;
 }
 
 void ApiServer::setupRoutes() {
+    // Serialize every request against the simulation loop (see setEngineMutex).
+    // The pre handler runs before routing, the post handler is invoked from
+    // write_response on every completed request — including error paths — so
+    // the unlock is always paired with the lock.
+    server_.set_pre_routing_handler([this](const httplib::Request&, httplib::Response&) {
+        if (engineMutex_) {
+            engineMutex_->lock();
+        }
+        return httplib::Server::HandlerResponse::Unhandled;
+    });
+    server_.set_post_routing_handler([this](const httplib::Request&, httplib::Response&) {
+        if (engineMutex_) {
+            engineMutex_->unlock();
+        }
+    });
+
     // CORS - using simpler approach
     httplib::Headers corsHeaders;
     corsHeaders.emplace("Access-Control-Allow-Origin", "*");
@@ -546,11 +652,11 @@ void ApiServer::setupRoutes() {
             } else if (command == "CHANGE_SCHEDULER") {
                 std::string policy = payload.value("policy", "FCFS");
                 if (sched_) {
-                    if (policy == "FCFS") sched_->setPolicy(SchedulingPolicy::FCFS);
-                    else if (policy == "ROUND_ROBIN") sched_->setPolicy(SchedulingPolicy::ROUND_ROBIN);
-                    else if (policy == "PRIORITY") sched_->setPolicy(SchedulingPolicy::PRIORITY);
-                    else if (policy == "AI_ADAPTIVE") sched_->setPolicy(SchedulingPolicy::ROUND_ROBIN); // AI scheduler is a later milestone (docs/08 section 44)
-                    success = true;
+                    if (policy == "FCFS") { sched_->setPolicy(SchedulingPolicy::FCFS); success = true; }
+                    else if (policy == "ROUND_ROBIN") { sched_->setPolicy(SchedulingPolicy::ROUND_ROBIN); success = true; }
+                    else if (policy == "PRIORITY") { sched_->setPolicy(SchedulingPolicy::PRIORITY); success = true; }
+                    else if (policy == "AI_ADAPTIVE") { sched_->setPolicy(SchedulingPolicy::AI_ADAPTIVE); success = true; }
+                    else error = "Unknown scheduling policy: " + policy;
                 } else error = "Scheduler not initialized";
             } else if (command == "RUN_SCENARIO") {
                 std::cout << "[ApiServer] RUN_SCENARIO: " << payload.value("scenario", std::string("basic_multiprogramming")) << " (workload preloaded)" << std::endl;
@@ -1276,11 +1382,7 @@ void ApiServer::setupRoutes() {
             }
             
             auto device = io_->getDevice(id);
-            bool success = device.has_value();
-            if (success) {
-                // Note: We'd need to add a setError method to IOManager
-                // For now, just return success
-            }
+            bool success = device.has_value() && io_->setDeviceError(id, reason);
             res.set_content(json{{"success", success}}.dump(), "application/json");
         } catch (const std::exception& e) {
             res.status = 400;
@@ -1306,10 +1408,7 @@ void ApiServer::setupRoutes() {
             }
             
             auto device = io_->getDevice(id);
-            bool success = device.has_value();
-            if (success) {
-                // Note: We'd need to add a recover method to IOManager
-            }
+            bool success = device.has_value() && io_->recoverDevice(id);
             res.set_content(json{{"success", success}}.dump(), "application/json");
         } catch (const std::exception& e) {
             res.status = 400;
@@ -1335,7 +1434,16 @@ void ApiServer::setupRoutes() {
     // Simple polling endpoint as alternative to WebSocket
     server_.Get("/api/events/poll", [this](const httplib::Request& req, httplib::Response& res) {
         std::string sinceStr = req.get_param_value("since");
-        int since = sinceStr.empty() ? 0 : std::stoi(sinceStr);
+        int since = 0;
+        if (!sinceStr.empty()) {
+            try {
+                since = std::stoi(sinceStr);
+            } catch (const std::exception&) {
+                res.status = 400;
+                res.set_content(json{{"error", "since must be an integer"}}.dump(), "application/json");
+                return;
+            }
+        }
         json j = json::array();
         if (log_) {
             const auto& events = log_->events();
