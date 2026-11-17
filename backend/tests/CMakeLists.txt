@@ -16,6 +16,7 @@ add_executable(aios_tests
     test_scheduler.cpp
     test_ipc.cpp
     test_io.cpp
+    test_server.cpp
 )
 
 target_include_directories(aios_tests PRIVATE
@@ -26,3 +27,6 @@ target_include_directories(aios_tests PRIVATE
 target_link_libraries(aios_tests PRIVATE aios_core)
 
 add_test(NAME aios_tests COMMAND aios_tests)
+if(WIN32)
+    target_link_libraries(aios_tests PRIVATE ws2_32)
+endif()
