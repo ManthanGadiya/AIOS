@@ -584,18 +584,33 @@ json ApiServer::ioToJson() const {
 
 void ApiServer::setupRoutes() {
     // Serialize every request against the simulation loop (see setEngineMutex).
-    // The pre handler runs before routing, the post handler is invoked from
-    // write_response on every completed request — including error paths — so
-    // the unlock is always paired with the lock.
-    server_.set_pre_routing_handler([this](const httplib::Request&, httplib::Response&) {
-        if (engineMutex_) {
+    // Two hazards shape this code:
+    //  1. cpp-httplib calls pre_routing_handler_ on WebSocket-upgrade requests
+    //     once before upgrade negotiation and AGAIN inside routing() when no
+    //     native WS handler matches (httplib.h), so an unguarded lock()
+    //     self-deadlocks the connection thread on the /ws request every
+    //     dashboard load makes — wedging the engine mutex for the whole
+    //     process (all later REST calls block, Ctrl+C hangs in join).
+    //     Upgrades therefore skip the lock entirely: the /ws handler reads no
+    //     engine state, and a future native WS handler would never reach the
+    //     post hook to unlock.
+    //  2. The post hook is invoked from write_response on every routed
+    //     response (including error paths), but a thread must never unlock a
+    //     mutex it does not hold — hence the per-thread ownership flag.
+    static thread_local bool engineLockHeld = false;
+    server_.set_pre_routing_handler([this](const httplib::Request& req, httplib::Response&) {
+        const bool isWsUpgrade = req.method == "GET" && req.has_header("Upgrade") &&
+                                 req.get_header_value("Upgrade").find("websocket") != std::string::npos;
+        if (engineMutex_ && !engineLockHeld && !isWsUpgrade) {
             engineMutex_->lock();
+            engineLockHeld = true;
         }
         return httplib::Server::HandlerResponse::Unhandled;
     });
     server_.set_post_routing_handler([this](const httplib::Request&, httplib::Response&) {
-        if (engineMutex_) {
+        if (engineMutex_ && engineLockHeld) {
             engineMutex_->unlock();
+            engineLockHeld = false;
         }
     });
 
@@ -1416,19 +1431,14 @@ void ApiServer::setupRoutes() {
         }
     });
     
-    // WebSocket endpoint - simplified for this httplib version
-    server_.Get("/ws", [this](const httplib::Request& req, httplib::Response& res) {
-        if (req.has_header("Upgrade") && req.get_header_value("Upgrade") == "websocket") {
-            // Note: Full WebSocket support requires httplib WebSocket extension
-            // For now, return upgrade headers - actual WebSocket handling is limited
-            res.status = 101;
-            res.set_header("Upgrade", "websocket");
-            res.set_header("Connection", "Upgrade");
-            res.set_header("Sec-WebSocket-Accept", "dummy"); // Simplified
-        } else {
-            res.status = 400;
-            res.set_content("WebSocket upgrade required", "text/plain");
-        }
+    // WebSocket endpoint. Real event streaming is not implemented yet; a
+    // fabricated 101 handshake (invalid accept key) only makes browsers log
+    // handshake errors, so upgrade attempts are told explicitly to fall back
+    // to /api/events/poll (frontend polls; WS is best-effort).
+    server_.Get("/ws", [this](const httplib::Request&, httplib::Response& res) {
+        res.status = 426; // Upgrade Required
+        res.set_header("Upgrade", "websocket");
+        res.set_content("WebSocket streaming not implemented; use /api/events/poll", "text/plain");
     });
     
     // Simple polling endpoint as alternative to WebSocket
