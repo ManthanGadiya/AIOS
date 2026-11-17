@@ -74,7 +74,7 @@ class ApiService {
   }
 
   getAllProcesses() {
-    return this.request<any[]>('/processes');
+    return this.request<Process[]>('/processes');
   }
 
   getAgents() {
@@ -191,10 +191,16 @@ class ApiService {
     return this.request<AgentStatistics[]>('/agents/detail');
   }
 
-  createAgent(name: string, type: 'RESEARCH' | 'CODING', priority: number, tokenBudget: number) {
+  createAgent(
+    name: string,
+    type: 'RESEARCH' | 'CODING',
+    priority: number,
+    tokenBudget: number,
+    permissions: string[] = []
+  ) {
     return this.request<{ success: boolean; pid: number; error?: string }>('/agent/create', {
       method: 'POST',
-      body: JSON.stringify({ name, type, priority, tokenBudget }),
+      body: JSON.stringify({ name, type, priority, tokenBudget, permissions }),
     });
   }
 

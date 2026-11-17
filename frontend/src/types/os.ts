@@ -35,7 +35,7 @@ export interface Process {
   name: string;
   state: ProcessState;
   priority: number;
-  memory: number; // MB or pages
+  memory: number; // KB of program image (4 bytes/word)
   cpuTime: number; // cycles
   readySinceCycle?: number;
   waitingTime?: number;
@@ -374,7 +374,7 @@ export interface MemoryState {
 }
 
 export interface SimulationControl {
-  command: 'START_SIMULATION' | 'PAUSE_SIMULATION' | 'STOP_SIMULATION' | 'RESET_SIMULATION' | 'CHANGE_SCHEDULER' | 'RUN_SCENARIO' | 'GENERATE_PAGE_FAULT' | 'SIMULATE_AGENT_FAILURE' | 'SET_CLOCK_SPEED' | 'SET_QUANTUM' | 'CREATE_AGENT' | 'CHECKPOINT_AGENT' | 'RECOVER_AGENT' | 'FAIL_AGENT' | 'REQUEST_TOOL';
+  command: 'START_SIMULATION' | 'PAUSE_SIMULATION' | 'STOP_SIMULATION' | 'RESET_SIMULATION' | 'CHANGE_SCHEDULER' | 'RUN_SCENARIO' | 'GENERATE_PAGE_FAULT' | 'SIMULATE_AGENT_FAILURE' | 'SET_CLOCK_SPEED' | 'SET_QUANTUM' | 'SET_PROCESS_COUNT' | 'CREATE_AGENT' | 'CHECKPOINT_AGENT' | 'RECOVER_AGENT' | 'FAIL_AGENT' | 'REQUEST_TOOL';
   payload?: Record<string, unknown>;
 }
 

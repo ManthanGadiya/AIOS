@@ -1,5 +1,5 @@
 // Settings Page - Configuration per docs/13_GUI_Architecture.md section 27
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../../services/api';
 import type { SchedulingPolicy } from '../../types/os';
 
@@ -10,6 +10,18 @@ export function SettingsPage() {
   const [processCount, setProcessCount] = useState(3);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+
+  // The backend is the source of truth: show the policy and quantum actually
+  // running (the demo server starts in ROUND_ROBIN with quantum 4), not the
+  // hardcoded component defaults.
+  useEffect(() => {
+    api.getScheduler().then((res) => {
+      if (res.success && res.data) {
+        setPolicy(res.data.currentAlgorithm);
+        setQuantum(res.data.timeQuantum);
+      }
+    });
+  }, []);
 
   const handlePolicyChange = async (newPolicy: SchedulingPolicy) => {
     setPolicy(newPolicy);
@@ -144,7 +156,7 @@ export function SettingsPage() {
             />
             <span className="text-lg font-mono text-green-400 w-16 text-right">{clockSpeed}x</span>
           </div>
-          <p className="text-sm text-gray-400 mt-2">Simulation cycles per second (1-10)</p>
+          <p className="text-sm text-gray-400 mt-2">Simulated cycles per 100 ms tick (1-10); each cycle is 100 ms / speed of wall-clock</p>
         </div>
 
         {/* Time Quantum */}

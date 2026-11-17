@@ -2,25 +2,7 @@
 import { useEffect, useState } from 'react';
 import { ProcessTable } from '../../components/ProcessTable/ProcessTable';
 import { api } from '../../services/api';
-import type { ProcessStatistics, Process } from '../../types/os';
-
-function statsToProcess(stat: ProcessStatistics): Process {
-  return {
-    pid: stat.pid,
-    type: stat.type,
-    name: stat.name,
-    state: stat.state,
-    priority: stat.priority,
-    memory: Math.round(stat.programSize / 1024),
-    cpuTime: stat.cpuTime,
-    readySinceCycle: stat.arrivalTime,
-    waitingTime: stat.waitingTime,
-    responseTime: stat.responseTime,
-    turnaroundTime: stat.turnaroundTime,
-    contextSwitchCount: stat.contextSwitches,
-    pageFaultCount: stat.pageFaults,
-  };
-}
+import type { Process } from '../../types/os';
 
 export function ProcessesPage() {
   const [processes, setProcesses] = useState<Process[]>([]);
@@ -35,7 +17,11 @@ export function ProcessesPage() {
         api.getScheduler(),
       ]);
       if (procRes.success && procRes.data) {
-        setProcesses(procRes.data.map(statsToProcess));
+        // Finished processes drop out of the table; the event log keeps the
+        // full history (docs/13 section 17).
+        setProcesses(
+          procRes.data.filter((p) => p.state !== 'TERMINATED')
+        );
       } else {
         setError(procRes.error || 'Failed to fetch processes');
       }

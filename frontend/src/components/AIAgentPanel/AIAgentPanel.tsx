@@ -14,6 +14,16 @@ export function AIAgentPanel({ autoRefresh = true, refreshInterval = 3000 }: AIA
   const [showCheckpoints, setShowCheckpoints] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
+  // Inline create-agent form (replaces the old prompt()/confirm() flow so
+  // priority, token budget and tool permissions are chosen before creation).
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newType, setNewType] = useState<'RESEARCH' | 'CODING'>('RESEARCH');
+  const [newPriority, setNewPriority] = useState(1);
+  const [newBudget, setNewBudget] = useState(1000);
+  const [newPerms, setNewPerms] = useState<string[]>(['READ_DATA', 'SEARCH']);
+  const [createError, setCreateError] = useState<string | null>(null);
+
   const fetchAgents = async () => {
     try {
       const agentsRes = await api.getAgents();
@@ -24,6 +34,37 @@ export function AIAgentPanel({ autoRefresh = true, refreshInterval = 3000 }: AIA
     } catch (error) {
       console.error('Failed to fetch agents:', error);
     }
+  };
+
+  const handleCreateAgent = async () => {
+    const name = newName.trim();
+    if (!name) {
+      setCreateError('Name is required');
+      return;
+    }
+    setActionLoading('create');
+    setCreateError(null);
+    try {
+      const res = await api.createAgent(name, newType, newPriority, newBudget, newPerms);
+      if (res.success) {
+        setShowCreate(false);
+        setNewName('');
+        setNewPerms(['READ_DATA', 'SEARCH']);
+        fetchAgents();
+      } else {
+        setCreateError(res.error || 'Failed to create agent');
+      }
+    } catch (e) {
+      setCreateError('Network error creating agent');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const togglePerm = (perm: string) => {
+    setNewPerms((prev) =>
+      prev.includes(perm) ? prev.filter((p) => p !== perm) : [...prev, perm]
+    );
   };
 
   const handleCreateCheckpoint = async (agentId: string) => {
@@ -145,18 +186,102 @@ export function AIAgentPanel({ autoRefresh = true, refreshInterval = 3000 }: AIA
         </h3>
         <div className="flex gap-2">
           <button
-            onClick={() => {
-              const name = prompt('Agent name:') || 'New Agent';
-              const type = confirm('Coding agent?') ? 'CODING' : 'RESEARCH';
-              api.createAgent(name, type, 1, 1000).then(fetchAgents);
-            }}
+            onClick={() => setShowCreate((v) => !v)}
             className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 rounded text-white disabled:opacity-50"
             disabled={actionLoading !== null}
           >
-            + Create Agent
+            {showCreate ? 'Cancel' : '+ Create Agent'}
           </button>
         </div>
       </div>
+
+      {showCreate && (
+        <div className="mb-4 bg-gray-700/60 border border-gray-600 rounded-lg p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="text-xs text-gray-400">Name</span>
+              <input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="e.g. Summarizer"
+                className="mt-1 w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-purple-500"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs text-gray-400">Type</span>
+              <select
+                value={newType}
+                onChange={(e) => setNewType(e.target.value as 'RESEARCH' | 'CODING')}
+                className="mt-1 w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-purple-500"
+              >
+                <option value="RESEARCH">RESEARCH</option>
+                <option value="CODING">CODING</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-xs text-gray-400">Priority (1-10)</span>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={newPriority}
+                onChange={(e) => setNewPriority(parseInt(e.target.value) || 1)}
+                className="mt-1 w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-purple-500"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs text-gray-400">Token budget</span>
+              <input
+                type="number"
+                min={100}
+                step={100}
+                value={newBudget}
+                onChange={(e) => setNewBudget(parseInt(e.target.value) || 1000)}
+                className="mt-1 w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-purple-500"
+              />
+            </label>
+          </div>
+          <div>
+            <span className="text-xs text-gray-400">Tool permissions</span>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {['READ_DATA', 'SEARCH', 'WRITE_CODE', 'EXECUTE'].map((perm) => (
+                <label
+                  key={perm}
+                  className={`px-2 py-1 rounded cursor-pointer text-xs border ${
+                    newPerms.includes(perm)
+                      ? 'bg-purple-600 border-purple-500 text-white'
+                      : 'bg-gray-800 border-gray-600 text-gray-300'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="hidden"
+                    checked={newPerms.includes(perm)}
+                    onChange={() => togglePerm(perm)}
+                  />
+                  {perm}
+                </label>
+              ))}
+            </div>
+          </div>
+          {createError && <p className="text-xs text-red-400">{createError}</p>}
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setShowCreate(false)}
+              className="px-3 py-1 text-xs bg-gray-600 hover:bg-gray-500 rounded text-white"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCreateAgent}
+              disabled={actionLoading === 'create'}
+              className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 rounded text-white disabled:opacity-50"
+            >
+              {actionLoading === 'create' ? 'Creating...' : 'Create'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {agents.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">

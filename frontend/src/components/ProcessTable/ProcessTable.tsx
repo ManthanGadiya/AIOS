@@ -78,7 +78,7 @@ export function ProcessTable({ processes, runningPid }: ProcessTableProps) {
                   </span>
                 </td>
                 <td className="px-3 py-2 text-gray-300 font-mono">{proc.priority}</td>
-                <td className="px-3 py-2 text-gray-300 font-mono">{proc.memory} MB</td>
+                <td className="px-3 py-2 text-gray-300 font-mono">{proc.memory} KB</td>
                 <td className="px-3 py-2 text-gray-400 font-mono">{proc.cpuTime}</td>
               </tr>
             ))}
