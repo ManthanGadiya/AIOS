@@ -134,6 +134,10 @@ class ApiService {
     return this.sendCommand({ command: 'SET_QUANTUM', payload: { quantum } });
   }
 
+  setProcessCount(count: number) {
+    return this.sendCommand({ command: 'SET_PROCESS_COUNT', payload: { count } });
+  }
+
   reset() {
     return this.sendCommand({ command: 'RESET_SIMULATION' });
   }

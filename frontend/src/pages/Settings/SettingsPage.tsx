@@ -7,6 +7,7 @@ export function SettingsPage() {
   const [policy, setPolicy] = useState<SchedulingPolicy>('FCFS');
   const [clockSpeed, setClockSpeed] = useState(1);
   const [quantum, setQuantum] = useState(4);
+  const [processCount, setProcessCount] = useState(3);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
@@ -59,6 +60,26 @@ export function SettingsPage() {
       }
     } catch {
       setMessage({type: 'error', text: 'Network error'});
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleProcessCountChange = async (count: number) => {
+    setProcessCount(count);
+    setSaving(true);
+    setMessage(null);
+    try {
+      const res = await api.setProcessCount(count);
+      if (res.success) {
+        setMessage({type: 'success', text: `Process count set to ${count}`});
+      } else {
+        setMessage({type: 'error', text: res.error || 'Failed to set process count'});
+        setProcessCount(3); // Revert on error
+      }
+    } catch {
+      setMessage({type: 'error', text: 'Network error'});
+      setProcessCount(3);
     } finally {
       setSaving(false);
     }
@@ -142,6 +163,24 @@ export function SettingsPage() {
             <span className="text-lg font-mono text-green-400 w-20 text-right">{quantum} cycles</span>
           </div>
           <p className="text-sm text-gray-400 mt-2">Cycles before preemption in Round Robin mode</p>
+        </div>
+
+        {/* Process Count */}
+        <div className="bg-gray-700/50 rounded-lg p-6">
+          <h3 className="text-lg font-medium text-gray-100 mb-4">Process Count</h3>
+          <div className="flex items-center gap-4">
+            <input
+              type="range"
+              min="1"
+              max="10"
+              value={processCount}
+              onChange={(e) => handleProcessCountChange(parseInt(e.target.value))}
+              disabled={saving}
+              className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none accent-green-500"
+            />
+            <span className="text-lg font-mono text-green-400 w-16 text-right">{processCount}</span>
+          </div>
+          <p className="text-sm text-gray-400 mt-2">Number of normal processes (1-10, max 10)</p>
         </div>
 
         {/* Danger Zone */}
