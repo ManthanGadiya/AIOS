@@ -168,16 +168,45 @@ Next Recommended Step:
 
 # 8. Change Log
 
+## 2026-11-17 (Engine Reliability: Process/PID Visibility Fix + Frontend Debounce)
+
+**Root cause of "extra processes loop among themselves and allocate more memory":**
+all six API-layer scans that enumerate processes (statisticsToJson, memoryToJson
+page tables, ipcToJson, /api/processes, /api/agents, and SET_PROCESS_COUNT
+alive-count) used a hardcoded `for (int pid = 0; pid < 256; ++pid)` loop. PIDs
+are monotonic and never reused; once the server created the 256th PCB, every
+new process became invisible to the dashboard and to the count command. The
+SET_PROCESS_COUNT slider fires one command per drag step (~9 per drag), so a
+single session easily crossed the 255 threshold â€” each subsequent adjustment
+piled on more invisible processes that kept holding frames, the frame table
+saturated (64/64), and the FIFO replacer thrashing page faults (116â†’397 in 20 s)
+while CPU usage hit 100%.
+
+**Fixes (owner: Core OS Lead, Manthan Gadiya):**
+* **Backend (ApiServer.cpp):** all six scans now iterate `pm_->processIds()`
+  (the real PCB set). SET_PROCESS_COUNT hardened: create failures reported,
+  terminate failures counted, success only when target reached.
+* **Frontend (SettingsPage.tsx):** slider debounced to 400 ms so one drag
+  commits a single SET_PROCESS_COUNT command instead of one per intermediate
+  value.
+* **Cleanup:** removed stale duplicate header `backend/src/aios/server/ApiServer.hpp`
+  (original commit 82b1664, superseded by include/aios/server/ApiServer.hpp).
+* **Regression test T-SRV-002:** creates 260 processes, verifies /api/processes
+  lists all, statistics.totalProcesses counts all, SET_PROCESS_COUNT reduces
+  and grows correctly across the 255 boundary, and /api/agents sees agents
+  with pid > 255.
+* **Full suite:** 184 test cases / 1302 assertions, all passing.
+
 ## 2026-11-17
 
 * **Demo Stability Pass (dashboard UX + engine regressions):**
   * **Process table (Pragati Jadhav, frontend):** processes page consumed the wrong endpoint shape (NaN memory); now uses the Process JSON directly, shows KB, hides TERMINATED rows. Scheduler settings page initializes policy/quantum from GET /api/scheduler instead of hardcoded defaults
   * **Agent panel (Pragati Jadhav, frontend):** inline create form (name, type, priority, token budget, permission checkboxes); checkpoint/fail/recover now operate on the real AGENT-N ids returned by /api/agents
-  * **Agent identity (ApiServer agentToJson):** /api/agents now merges AIAgentManager metadata by PID — real agentId/task/tokenUsage/permissions/agentState/counts (previously fabricated "A"+pid ids that no agent endpoint could resolve)
+  * **Agent identity (ApiServer agentToJson):** /api/agents now merges AIAgentManager metadata by PID ï¿½ real agentId/task/tokenUsage/permissions/agentState/counts (previously fabricated "A"+pid ids that no agent endpoint could resolve)
   * **Demo workload (server):** loop-based programs (~300 cycles, ~16-20 words) keep the demo resident in the 64-frame memory (the 200-word image overflowed once processes were added and ended a process FAILED); SET_CLOCK_SPEED now really drives the loop; SET_PROCESS_COUNT adds named processes with DISK writes
-  * **Engine fix — block context (process subsystem, owner UNKNOWN ? needs review):** blockProcess() released the CPU without saving the context, so wakes rewound to the last preemption snapshot and re-ran the blocking SYSCALL; context is now saved at the block point. T-PROC-010
-  * **Engine fix — I/O queue (Hari Jadhav, I/O):** completed devices never started the next queued request, stranding owners in WAITING; IOManager::tick now dequeues/pushes on completion. T-IO-004
-  * **Cleanup (ApiServer.cpp):** removed a duplicate registration of the whole GET state-endpoint block (dead — httplib dispatches only the first)
+  * **Engine fix ï¿½ block context (process subsystem, owner UNKNOWN ? needs review):** blockProcess() released the CPU without saving the context, so wakes rewound to the last preemption snapshot and re-ran the blocking SYSCALL; context is now saved at the block point. T-PROC-010
+  * **Engine fix ï¿½ I/O queue (Hari Jadhav, I/O):** completed devices never started the next queued request, stranding owners in WAITING; IOManager::tick now dequeues/pushes on completion. T-IO-004
+  * **Cleanup (ApiServer.cpp):** removed a duplicate registration of the whole GET state-endpoint block (dead ï¿½ httplib dispatches only the first)
   * **Tests:** +2 (T-PROC-010, T-IO-004); full suite 183 cases / 1021 assertions, all passing
   * **Handoff:** server must be restarted to pick up the new binary (exe is locked by any running instance)
 * **Engine Reliability Pass (integration testing follow-up):**

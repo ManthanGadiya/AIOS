@@ -4,7 +4,7 @@
 >
 > Update this file after every meaningful project change.
 
-**Last Updated:** 2026-10-28
+**Last Updated:** 2026-11-17
 
 ---
 
@@ -47,7 +47,7 @@ Final Demo
 **Current Focus:**
 
 * Core OS implementation (M1: Foundation + M2: Stage I CPU/System Calls + M3: Paging + M4: Full Interrupt Manager + M5: Process Manager full features + M5-Scheduler + Mid-Review GUI + Week 6: Synchronization + IPC + Week 7: I/O Subsystem + Syscall Implementation + Week 8: AI Agent Layer) â€” **DONE**
-* C++ backend builds and the full test suite passes (183 test cases / 1021 assertions, all passing)
+* C++ backend builds and the full test suite passes (184 test cases / 1302 assertions, all passing)
 * GitHub repository confirmed and synced
 * Next: Integration scenarios and WebSocket event streaming
 
@@ -369,19 +369,48 @@ Meaningful commit created
 
 # 13. Latest Meaningful Change
 
+**2026-11-17 (Engine reliability: process/PID visibility fix + frontend debounce)**
+
+Root cause of "extra processes loop among themselves and allocate more memory":
+all six API-layer scans that enumerate processes (statisticsToJson, memoryToJson
+page tables, ipcToJson, /api/processes, /api/agents, and SET_PROCESS_COUNT
+alive-count) used a hardcoded `for (int pid = 0; pid < 256; ++pid)` loop. PIDs
+are monotonic and never reused; once the server created the 256th PCB, every
+new process became invisible to the dashboard and to the count command. The
+SET_PROCESS_COUNT slider fires one command per drag step (~9 per drag), so a
+single session easily crossed the 255 threshold â€” each subsequent adjustment
+piled on more invisible processes that kept holding frames, the frame table
+saturated (64/64), and the FIFO replacer thrashing page faults (116â†’397 in 20 s)
+while CPU usage hit 100%.
+
+Fixes:
+* Backend (ApiServer.cpp): all six scans now iterate `pm_->processIds()` (the
+  real PCB set). SET_PROCESS_COUNT hardened: create failures are reported,
+  terminate failures counted, and success is only reported when the target is
+  actually reached.
+* Frontend (SettingsPage.tsx): slider debounced to 400 ms so one drag commits
+  a single SET_PROCESS_COUNT command instead of one per intermediate value.
+* Removed stale duplicate header `backend/src/aios/server/ApiServer.hpp`
+  (original commit 82b1664, superseded by include/aios/server/ApiServer.hpp).
+* Regression test T-SRV-002: creates 260 processes, verifies /api/processes
+  lists all, statistics.totalProcesses counts all, SET_PROCESS_COUNT reduces
+  and grows correctly across the 255 boundary, and /api/agents sees agents
+  with pid > 255.
+* Full suite: 184 test cases / 1302 assertions, all passing.
+
 **2026-11-17 (Demo stability: UX fixes, real agent identity, two engine bugs)**
 
 Follow-up pass from end-to-end dashboard testing, fixing the demo-blocking defects.
 
 * Frontend process table (ProcessesPage/api.ts): the page mapped GET /api/processes (Process JSON, no programSize) through the ProcessStatistics mapper, showing NaN memory. It now consumes the Process shape directly, displays KB (4 bytes/word) and hides TERMINATED rows (the event log keeps history). processToJson also emits programSize and memory in KB with one decimal
-* Scheduler settings (SettingsPage): policy/quantum were hardcoded ('FCFS'/4) while the engine runs ROUND_ROBIN. The page now initializes from GET /api/scheduler — the backend is the source of truth
+* Scheduler settings (SettingsPage): policy/quantum were hardcoded ('FCFS'/4) while the engine runs ROUND_ROBIN. The page now initializes from GET /api/scheduler ï¿½ the backend is the source of truth
 * Agent identity (processToJson ? agentToJson): /api/agents fabricated agentId = "A"+pid while /api/agents/detail returned real AGENT-N ids, so the UI's checkpoint/fail/recover buttons could never resolve an agent (no-op). agentToJson now merges AIAgentManager metadata by PID (agentId, task, tokenUsage, permissions, agentState, checkpoint/failure counts); checkpoint with AGENT-1 verified end-to-end
 * Agent creation (AIAgentPanel + /api/agent/create): the prompt()/confirm() flow is replaced by an inline form (name, type, priority 1-10, token budget, tool-permission checkboxes); the backend validates the permissions array (unknown ? 400)
 * Clock speed (main.cpp/ApiServer): SET_CLOCK_SPEED now drives the simulation loop (N cycles per 100 ms tick via a shared std::atomic<int>); previously accepted and ignored
-* Longer demo runs (makeLoopProgram in main.cpp/ApiServer): demo/agent programs are counted loops (warmup ADDs, one blocking SYSCALL, SUB/JZ/JMP countdown, HALT) — ~300 cycles in ~16-20 words, so the whole workload stays resident in the 64-frame logical memory. The previous 200-word programs filled 59/64 pages; adding two processes forced evictions and one process ended FAILED executing zero-padded swap content (docs/13-14 demo would break)
+* Longer demo runs (makeLoopProgram in main.cpp/ApiServer): demo/agent programs are counted loops (warmup ADDs, one blocking SYSCALL, SUB/JZ/JMP countdown, HALT) ï¿½ ~300 cycles in ~16-20 words, so the whole workload stays resident in the 64-frame logical memory. The previous 200-word programs filled 59/64 pages; adding two processes forced evictions and one process ended FAILED executing zero-padded swap content (docs/13-14 demo would break)
 * Named extra processes (SET_PROCESS_COUNT): added processes get demo names (Spreadsheet, Browser, VideoPlayer, Terminal, Database, ChatApp, Backup), loop programs and one DISK write each, so the I/O queue visibly accumulates; counting is alive-only, so re-setting the count after a run spins up fresh work
-* ENGINE FIX — context lost on block (ProcessManager::blockProcess): releasing the CPU discarded the running context, so a WAITING process woke up rewound to its last preemption snapshot, re-executed and re-triggered the blocking SYSCALL (with the already-consumed one-shot payload). blockProcess now snapshots the context at the block point before releasing. Regression test T-PROC-010
-* ENGINE FIX — I/O queue stall (IOManager::tick): after a completion the device returned to AVAILABLE but never started the next queued request, so requests behind the first stalled until a new submission re-activated the device and their owners hung in WAITING forever. Completion now pulls the next request (FIFO, docs/11). Regression test T-IO-004
+* ENGINE FIX ï¿½ context lost on block (ProcessManager::blockProcess): releasing the CPU discarded the running context, so a WAITING process woke up rewound to its last preemption snapshot, re-executed and re-triggered the blocking SYSCALL (with the already-consumed one-shot payload). blockProcess now snapshots the context at the block point before releasing. Regression test T-PROC-010
+* ENGINE FIX ï¿½ I/O queue stall (IOManager::tick): after a completion the device returned to AVAILABLE but never started the next queued request, so requests behind the first stalled until a new submission re-activated the device and their owners hung in WAITING forever. Completion now pulls the next request (FIFO, docs/11). Regression test T-IO-004
 * Dead code (ApiServer.cpp): the entire GET state-endpoint block was registered twice; cpp-httplib only dispatches the first registration, so edits to the duplicate were silently dead. The duplicate is removed
 * New tests: T-PROC-010 (block saves context; wake resumes at the block point) and T-IO-004 (queued requests drain automatically and every owner is woken); full suite 183 test cases / 1021 assertions, all passing
 * Note: the running server must be restarted to pick up the new binary; aios_server.exe cannot be relinked while an instance holds it
