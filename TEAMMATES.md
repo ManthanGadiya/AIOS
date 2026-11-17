@@ -179,6 +179,8 @@ Next Recommended Step:
   * **Handoff note (Hari Jadhav, I/O):** device error/recover are now real — review `IOManager::setDeviceError()` wake-on-failure policy (blocked owners are woken because the simulator has no I/O error return channel)
   * **Demo I/O:** every demo process issues one blocking IO_REQUEST (DISK×2 queue, KEYBOARD, NETWORK, PRINTER); payloads are one-shot per PID (docs/05), so programs carry exactly one SYSCALL instruction; T-SC-008 covers the syscall→block→wake path; suite now 181 cases / 996 assertions
   * **WS-wedge fix (Pragati Jadhav, frontend-facing):** the dashboard's /ws handshake on page load deadlocked a connection thread while holding the engine mutex (httplib calls the pre-routing hook twice for upgrade requests), which made the whole REST API appear down and hung Ctrl+C. Upgrades now skip the engine lock, /ws answers 426 (frontend keeps polling — WS was already best-effort), and T-SRV-001 guards REST-liveness-after-WS and clean shutdown
+  * **Agent creation (Pragati Jadhav):** /api/agent/create now admits new agents so they're immediately visible and schedulable (previously stuck in NEW)
+  * **Process count (Pragati Jadhav):** Settings slider 1–10, SET_PROCESS_COUNT command creates/terminates real NORMAL processes; state machine extended with READY→TERMINATED for clean reduction; also wired missing SET_CLOCK_SPEED/SET_QUANTUM backend commands
 
 ## 2026-10-27
 
