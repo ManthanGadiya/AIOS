@@ -47,7 +47,7 @@ Final Demo
 **Current Focus:**
 
 * Core OS implementation (M1: Foundation + M2: Stage I CPU/System Calls + M3: Paging + M4: Full Interrupt Manager + M5: Process Manager full features + M5-Scheduler + Mid-Review GUI + Week 6: Synchronization + IPC + Week 7: I/O Subsystem + Syscall Implementation + Week 8: AI Agent Layer) — **DONE**
-* C++ backend builds and the full test suite passes (174 test cases / 924 assertions, all passing)
+* C++ backend builds and the full test suite passes (179 test cases / 980 assertions, all passing)
 * GitHub repository confirmed and synced
 * Next: Integration scenarios and WebSocket event streaming
 
@@ -368,6 +368,20 @@ Meaningful commit created
 ---
 
 # 13. Latest Meaningful Change
+
+**2026-11-17 (Engine reliability: interrupt resume, thread safety, AI scheduler, I/O surfacing)**
+
+Fixes for the stall/crash class of bugs found in end-to-end dashboard testing.
+
+* CPU resume after interrupts (backend/src/aios/server/main.cpp): a serviced PAGE_FAULT/SYSCALL left the CPU INTERRUPTED and executeCycle() is a no-op outside RUNNING, so FCFS/Priority stalled forever after any fault; the tick loop now calls cpu->resume() once per cycle (a handler that blocked/terminated the process already released the CPU, so resume is a no-op then). The demo workload (ADD+HALT only) never faulted, which hid the bug
+* Engine mutex: one std::mutex now serializes the simulation loop against every HTTP handler through cpp-httplib pre/post routing handlers (ApiServer::setEngineMutex); the reported mid-run scheduler-change crash was the request thread mutating readyOrder_/history_ while the sim thread iterated them
+* Scheduling every cycle: the loop previously called schedule() only when the CPU was idle, so the PRIORITY and AI_ADAPTIVE preemption branches were dead in the server; the redundant second processManager->dispatch() is removed
+* AI_ADAPTIVE: calculateAIScore() no longer returns the -1.0 sentinel for RUNNING processes (it caused per-cycle thrash and collided with the bestScore init), pickAIAdaptive() initializes on the first candidate, and CHANGE_SCHEDULER maps AI_ADAPTIVE to the real policy instead of silently substituting ROUND_ROBIN; unknown policies now fail explicitly
+* I/O surfaced: ioToJson() was a placeholder returning []; it now serializes devices (state, waiting-process names, current request, per-device stats), buffers, spoolers and I/O statistics in the dashboard IOState shape; IOManager gains setDeviceError()/recoverDevice() backing the previously no-op /api/device/error and /api/device/recover endpoints (queued + in-flight requests fail and their owners are woken); RESET now resets the I/O manager so devices are re-created from a clean state
+* Missing definition: IOManager::getAllDevices() was declared but never defined (link gap exposed by the new serialization)
+* New tests: T-SCHED-017 (AI_ADAPTIVE scores the RUNNING process, preempts only past the threshold), T-SCHED-018 (FCFS -> RR -> PRIORITY -> AI_ADAPTIVE mid-run), test_io.cpp T-IO-001..003 (buffer states, device error fails queued requests and wakes owners, unknown-id rejection)
+* Full suite: 179 test cases / 980 assertions, all passing
+* Note: the running server must be restarted to pick up the new binary; the .exe cannot be relinked while an instance is up
 
 **2026-11-17 (Test suite repair + AI Agent source committed)**
 

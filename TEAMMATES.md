@@ -168,6 +168,16 @@ Next Recommended Step:
 
 # 8. Change Log
 
+## 2026-11-17
+
+* **Engine Reliability Pass (integration testing follow-up):**
+  * **Interrupt resume** (main.cpp): `cpu->resume()` after every serviced interrupt — FCFS/Priority no longer stall after a PAGE_FAULT/SYSCALL
+  * **Engine mutex**: sim loop and all HTTP handlers serialized through cpp-httplib pre/post routing hooks; mid-run CHANGE_SCHEDULER no longer crashes
+  * **Scheduling**: scheduler runs every cycle (Priority/AI_ADAPTIVE preemption live); AI_ADAPTIVE scoring fixed for RUNNING processes and exposed by the API (no more silent RR substitution)
+  * **I/O surfaced**: `GET /api/io` returns devices/buffers/spoolers/stats; device error/recover endpoints functional; `IOManager::getAllDevices()` definition added (was declared-only); RESET resets I/O
+  * **Tests**: +5 (T-SCHED-017/018, test_io.cpp T-IO-001..003); full suite 179 test cases / 980 assertions, all passing
+  * **Handoff note (Hari Jadhav, I/O):** device error/recover are now real — review `IOManager::setDeviceError()` wake-on-failure policy (blocked owners are woken because the simulator has no I/O error return channel)
+
 ## 2026-10-27
 
 * **Week 6 (Synchronization + IPC) Complete:**

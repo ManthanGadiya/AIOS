@@ -635,7 +635,7 @@ Detailed history belongs in STATUS.md.
 
 **Implemented (M5-Scheduler):**
 
-* **Scheduling policies** — FCFS (non-preemptive FIFO), Round Robin (quantum expiry preempts and rotates to the back), Priority (larger value = higher priority, preemptive; tie-breaks by ready time then PID), AI_ADAPTIVE (heuristic scoring with explainable decisions)
+* **Scheduling policies** — FCFS (non-preemptive FIFO), Round Robin (quantum expiry preempts and rotates to the back), Priority (larger value = higher priority, preemptive; tie-breaks by ready time then PID), AI_ADAPTIVE (heuristic scoring with explainable decisions; preempts only when the best READY score beats the running score by a threshold)
 * **Scheduler state** — persistent ready order reconciled with the Process Manager's READY set on every decision; policy change emits SCHEDULER_STARTED
 * **Scheduler events** — PROCESS_SELECTED / PROCESS_PREEMPTED / TIME_QUANTUM_EXPIRED (docs/08 section 40); decision history (cycle, policy, selected/preempted pid, reason, score, scoreReason), context-switch count, reset()
 * **Timer integration** — TIMER interrupt drives Round Robin preemption through `InterruptManager::setScheduler()` (docs/08 section 24)
@@ -653,7 +653,7 @@ Detailed history belongs in STATUS.md.
 * **IPC** — IPCMessage (id, sender/receiver PID, type, payload, timestamp), MessageQueue (FIFO, capacity limit, blocking/non-blocking receive), IPCManager (channels, send/receive, allow/deny permission lists, statistics), process cleanup (removes messages addressed to terminated process), agent communication patterns (research→coding, task request/response), per-process statistics, reset
 * **New Event Types** — MUTEX_CREATED/LOCKED/UNLOCKED, PROCESS_BLOCKED_ON_MUTEX/WAKEUP, SEMAPHORE_CREATED/WAIT/SIGNAL, DEADLOCK_DETECTED, SYNCHRONIZATION_ERROR, IPC_CHANNEL_CREATED, IPC_SEND/RECEIVE, IPC_MESSAGE_QUEUED/DELIVERED, IPC_QUEUE_FULL, IPC_PERMISSION_DENIED, IPC_ERROR
 * **New System Calls** — SYSCALL_LOCK=7, UNLOCK=8, WAIT=9, SIGNAL=10, IPC_RECEIVE=11 (stubs returning UNSUPPORTED)
-* **Full test coverage** — 174 test cases / 924 assertions, all passing (sync harness, IPC reset semantics and syscall expectations repaired on 2026-11-17)
+* **Full test coverage** — 179 test cases / 980 assertions, all passing (sync harness, IPC reset semantics and syscall expectations repaired on 2026-11-17; scheduler AI-scoring/policy-change and I/O device-error tests added)
 
 **Implemented (Week 7 — I/O Subsystem + Syscall Implementation):**
 
@@ -673,6 +673,14 @@ Detailed history belongs in STATUS.md.
 * **New Event Types** — AGENT_CREATED, AGENT_STARTED, AGENT_CHECKPOINTED, AGENT_TOOL_REQUEST, AGENT_TOOL_DENIED, AGENT_FAILURE, AGENT_RECOVERY_STARTED, AGENT_RECOVERED, AGENT_TERMINATED
 * **API Endpoints** — GET /api/agents/detail, POST /api/agent/create/checkpoint/recover/fail/tool-request, GET /api/agent/checkpoints/quota
 * **Frontend** — AIAgentPanel with action buttons (Checkpoint, Fail, Recover), tool permission toggles, checkpoint list with per-checkpoint recovery, detailed statistics (CPU, memory, IPC, checkpoints, failures, recoveries), agent state badges
+
+**Implemented (Engine Reliability — 2026-11-17):**
+
+* **Interrupt resume** — after a serviced PAGE_FAULT/SYSCALL the simulation loop resumes the INTERRUPTED CPU so the faulting instruction is retried; previously FCFS/Priority stalled forever after any fault (the demo workload never faults, which hid it)
+* **Engine concurrency** — one engine mutex serializes the simulation loop against every HTTP handler (cpp-httplib pre/post routing hooks); changing the scheduler mid-run no longer trips the request thread into unsynchronized manager state
+* **Per-cycle scheduling** — the scheduler runs every cycle instead of only when idle, so Priority and AI_ADAPTIVE preemption actually fire; the redundant second dispatch in the tick loop is gone
+* **AI_ADAPTIVE correctness** — the policy scores the RUNNING process as well (the old -1.0 sentinel preempted every cycle) and the API maps AI_ADAPTIVE to the real policy instead of silently substituting Round Robin
+* **I/O surfaced** — `GET /api/io` now serializes devices (state, queue by process name, current request, stats), buffers, spoolers and I/O statistics in the dashboard's IOState shape; `POST /api/device/error` / `/api/device/recover` actually inject and clear device failures (queued requests fail and their owners are woken); RESET re-creates I/O devices cleanly
 
 **Currently Working On:**
 
