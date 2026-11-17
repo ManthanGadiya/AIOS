@@ -127,12 +127,12 @@ TEST_CASE("T-PROC-006: terminate ends a running process and resets the CPU") {
     CHECK(h.hasEvent(EventType::PROCESS_TERMINATED));
 }
 
-TEST_CASE("T-PROC-007: terminate rejects a non-running process") {
+TEST_CASE("T-PROC-007: terminate accepts READY process (for process count management)") {
     Harness h;
     const int pid = h.create("a", 1, smallProgram(), 0);
     REQUIRE(h.pm.admit(pid));
-    CHECK_FALSE(h.pm.terminate(pid)); // READY cannot terminate
-    CHECK(h.pm.getProcess(pid)->state == ProcessState::READY);
+    CHECK(h.pm.terminate(pid)); // READY can now terminate
+    CHECK(h.pm.getProcess(pid)->state == ProcessState::TERMINATED);
     CHECK_FALSE(h.pm.terminate(999));
 }
 

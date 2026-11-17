@@ -203,7 +203,7 @@ bool ProcessManager::transition(int pid, ProcessState to, const std::string& rea
             allowed = (from == ProcessState::RUNNING);
             break;
         case ProcessState::TERMINATED:
-            allowed = (from == ProcessState::RUNNING || from == ProcessState::WAITING);
+            allowed = (from == ProcessState::RUNNING || from == ProcessState::WAITING || from == ProcessState::READY);
             break;
         case ProcessState::FAILED:
             allowed = pcb->isAlive();
