@@ -46,14 +46,37 @@ static std::vector<int32_t> makeProgram(int instructions) {
     return prog;
 }
 
+// Demonstration program that issues one blocking I/O syscall mid-run
+// (docs/05 section 6, docs/11): compute, IO_REQUEST, block until the device
+// completes, compute, HALT. The payload is supplied per-PID via
+// setSyscallPayload and consumed on first use, so exactly one SYSCALL
+// instruction may appear in the program - a second one would reach
+// handleIoRequest with an empty payload and is fatal (docs/05 section 4).
+static std::vector<int32_t> makeIoProgram(int instructions, int ioAfter) {
+    std::vector<int32_t> prog;
+    prog.reserve(static_cast<size_t>(instructions) + 2);
+    for (int i = 0; i < ioAfter; ++i) {
+        prog.push_back(Instruction{Opcode::ADD, 1}.toWord());
+    }
+    prog.push_back(Instruction{Opcode::SYSCALL, SYSCALL_IO_REQUEST}.toWord());
+    for (int i = ioAfter; i < instructions; ++i) {
+        prog.push_back(Instruction{Opcode::ADD, 1}.toWord());
+    }
+    prog.push_back(Instruction{Opcode::HALT, 0}.toWord());
+    return prog;
+}
+
 // Standard demonstration workload (PRD section 20):
 // P1 TextEditor, P2 Compiler, P3 MusicPlayer, A1 Research Agent, A2 Coding Agent.
 // AI agents are ordinary OS processes created via createAgentProcess
 // (docs/06 section 34); they never bypass the scheduler.
+// Each process performs one blocking I/O request so the dashboard's I/O
+// section shows real device activity (docs/11, docs/14 scenario events).
 static void createDemoWorkload(ProcessManager& pm, AIAgentManager& aiAgents,
-                               SynchronizationManager* sync, IPCManager* ipc, IOManager* io) {
-    const auto proc = makeProgram(200);
-    const auto agent = makeProgram(150);
+                               SynchronizationManager* sync, IPCManager* ipc,
+                               IOManager* io, SystemCallManager* syscalls) {
+    const auto proc = makeIoProgram(200, 8);
+    const auto agent = makeIoProgram(150, 12);
 
     int p1 = pm.createProcess("TextEditor", 1, proc, 0);
     int p2 = pm.createProcess("Compiler", 2, proc, 0);
@@ -62,6 +85,17 @@ static void createDemoWorkload(ProcessManager& pm, AIAgentManager& aiAgents,
     // Create AI agents through the AI Agent Manager (docs/12 section 11)
     int a1 = aiAgents.createAgent("Research", AgentType::RESEARCH, 2, agent, 0, 1000);
     int a2 = aiAgents.createAgent("Coding", AgentType::CODING, 1, agent, 0, 1000);
+
+    // I/O payloads: "deviceId:operation:data", 0=READ 1=WRITE (docs/05).
+    // TextEditor and Compiler both write to DISK so the device shows a real
+    // queue; the others spread across the remaining devices.
+    if (syscalls) {
+        if (p1 != INVALID_PID) syscalls->setSyscallPayload(p1, "DISK:1:document-save");
+        if (p2 != INVALID_PID) syscalls->setSyscallPayload(p2, "DISK:1:object-file");
+        if (p3 != INVALID_PID) syscalls->setSyscallPayload(p3, "KEYBOARD:0:playlist");
+        if (a1 != INVALID_PID) syscalls->setSyscallPayload(a1, "NETWORK:0:research-sources");
+        if (a2 != INVALID_PID) syscalls->setSyscallPayload(a2, "PRINTER:1:code-report");
+    }
 
     if (p1 != INVALID_PID) pm.admit(p1);
     if (p2 != INVALID_PID) pm.admit(p2);
@@ -221,10 +255,10 @@ int main(int argc, char* argv[]) {
         // Devices still hold queues from the previous run; recreate them so the
         // workload below starts from a clean I/O state.
         if (ioManager) ioManager->reset();
-        createDemoWorkload(*processManager, *aiAgentManager, syncManager.get(), ipcManager.get(), ioManager.get());
+        createDemoWorkload(*processManager, *aiAgentManager, syncManager.get(), ipcManager.get(), ioManager.get(), systemCallManager.get());
     });
 
-    createDemoWorkload(*processManager, *aiAgentManager, syncManager.get(), ipcManager.get(), ioManager.get());
+    createDemoWorkload(*processManager, *aiAgentManager, syncManager.get(), ipcManager.get(), ioManager.get(), systemCallManager.get());
 
     // Refuse to start when something already answers on this port. Windows
     // socket semantics make bind() alone unreliable for detecting this, which

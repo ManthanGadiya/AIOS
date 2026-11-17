@@ -3,6 +3,7 @@
 #include <aios/core/types.hpp>
 #include <aios/cpu/CPU.hpp>
 #include <aios/interrupt/SystemCallManager.hpp>
+#include <aios/io/IOManager.hpp>
 #include <aios/memory/Memory.hpp>
 #include <aios/process/ProcessManager.hpp>
 
@@ -108,4 +109,33 @@ TEST_CASE("T-SC-007: unknown syscall numbers return INVALID") {
     Harness h;
     const SyscallResult r = h.syscalls.handleSystemCall(SyscallRequest{1, 99});
     CHECK(r.status == SyscallStatus::INVALID);
+}
+
+TEST_CASE("T-SC-008: IO_REQUEST payload blocks the caller until the device completes") {
+    Harness h;
+    IOManager io;
+    io.setEventLog(&h.log);
+    io.setProcessManager(&h.pm);
+    io.setClock(&h.clock);
+    h.syscalls.setIOManager(&io);
+    REQUIRE(io.createDevice("DISK", DeviceType::DISK, 5));
+
+    const int pid = h.startRunningProcess();
+    // Payload format "deviceId:operation:data", 1 = WRITE (docs/05).
+    h.syscalls.setSyscallPayload(pid, "DISK:1:document-save");
+    const SyscallResult r = h.syscalls.handleSystemCall(SyscallRequest{pid, SYSCALL_IO_REQUEST});
+    CHECK(r.status == SyscallStatus::OK);
+    CHECK(h.pm.getProcess(pid)->state == ProcessState::WAITING);
+
+    // The payload is consumed on first use; a second request without a fresh
+    // payload is INVALID (fatal to the caller per docs/05 section 4).
+    CHECK(h.syscalls.handleSystemCall(SyscallRequest{pid, SYSCALL_IO_REQUEST}).status ==
+          SyscallStatus::INVALID);
+
+    for (int i = 0; i < 5; ++i) {
+        h.clock.tick();
+        io.tick();
+    }
+    CHECK(h.pm.getProcess(pid)->state == ProcessState::READY);
+    CHECK(io.getStatistics().completedRequests == 1);
 }
