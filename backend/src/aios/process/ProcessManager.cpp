@@ -108,6 +108,10 @@ bool ProcessManager::blockProcess(int pid) {
     if (!transition(pid, ProcessState::WAITING, "block")) {
         return false;
     }
+    // Snapshot the context at the block point BEFORE the CPU is released, so
+    // a later wake resumes at the instruction after the blocking SYSCALL
+    // instead of rewinding to the last preemption snapshot (docs/05, docs/06).
+    saveRunningContext();
     releaseCpuIfRunning(pid);
     return true;
 }

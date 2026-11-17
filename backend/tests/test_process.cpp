@@ -149,6 +149,29 @@ TEST_CASE("T-PROC-008: block and wake round-trip") {
     CHECK_FALSE(h.pm.blockProcess(pid)); // READY cannot block
 }
 
+TEST_CASE("T-PROC-010: block saves the running context (resume after block point)") {
+    Harness h;
+    const std::vector<int32_t> program = {
+        Instruction{Opcode::ADD, 1}.toWord(), Instruction{Opcode::ADD, 1}.toWord(),
+        Instruction{Opcode::ADD, 1}.toWord(), Instruction{Opcode::HALT, 0}.toWord()};
+    const int pid = h.create("a", 1, program, 0);
+    REQUIRE(h.pm.admit(pid));
+    REQUIRE(h.pm.dispatch(pid));
+    h.cpu.executeCycle();
+    h.cpu.executeCycle(); // pc=2, acc=2
+    REQUIRE(h.pm.blockProcess(pid));
+    REQUIRE(h.pm.wakeProcess(pid));
+    REQUIRE(h.pm.dispatch(pid));
+    // The wake must resume at the instruction after the block point, not
+    // rewind to the dispatch snapshot (T-PROC-010 regression).
+    CHECK(h.cpu.registers().pc == 2);
+    CHECK(h.cpu.registers().acc == 2);
+    h.cpu.executeCycle();
+    CHECK(h.cpu.registers().acc == 3);
+    h.cpu.executeCycle();
+    CHECK(h.cpu.state() == CpuState::HALTED);
+}
+
 TEST_CASE("T-PROC-009: markFailed flags an unrecoverable error") {
     Harness h;
     const int pid = h.create("a", 1, smallProgram(), 0);
