@@ -1,6 +1,8 @@
 #include <aios/core/EventLog.hpp>
 #include <aios/core/SimulationClock.hpp>
 #include <aios/core/types.hpp>
+#include <aios/cpu/CPU.hpp>
+#include <aios/memory/Memory.hpp>
 #include <aios/process/ProcessManager.hpp>
 #include <aios/sync/SynchronizationManager.hpp>
 
@@ -15,17 +17,34 @@ namespace {
 
 // Minimal harness for synchronization tests
 struct SyncHarness {
+    Memory memory;
     EventLog log;
     SimulationClock clock;
+    CPU cpu;
     ProcessManager pm;
     SynchronizationManager sync;
 
     SyncHarness() {
+        pm.setMemory(&memory);
         pm.setEventLog(&log);
+        pm.setCPU(&cpu);
         pm.setClock(&clock);
+        cpu.setMemory(&memory);
+        cpu.setEventLog(&log);
+        cpu.setClock(&clock);
         sync.setEventLog(&log);
         sync.setProcessManager(&pm);
         sync.setClock(&clock);
+    }
+
+    // Creates and admits a process so it can be dispatched (RUNNING) and later
+    // blocked/woken through the ProcessManager state machine.
+    int createReadyProcess(const std::string& name) {
+        const int pid =
+            pm.createProcess(name, 1, {Instruction{Opcode::HALT, 0}.toWord()}, 0);
+        REQUIRE(pid != INVALID_PID);
+        REQUIRE(pm.admit(pid));
+        return pid;
     }
 
     bool hasEvent(EventType type) const {
@@ -236,45 +255,55 @@ TEST_CASE("T-SYNC-014: Process blocks on mutex via ProcessManager") {
     SyncHarness h;
     h.sync.createMutex("M1");
 
-    // P1 acquires
-    CHECK(h.sync.lockMutex("M1", 1));
-    // P1 would be RUNNING in real OS
+    const int p1 = h.createReadyProcess("p1");
+    const int p2 = h.createReadyProcess("p2");
 
-    // P2 tries to acquire, gets blocked
-    CHECK_FALSE(h.sync.lockMutex("M1", 2));
+    // P1 runs and acquires the mutex
+    CHECK(h.pm.dispatch(p1));
+    CHECK(h.sync.lockMutex("M1", p1));
 
-    // In real OS, ProcessManager would call blockProcess(2)
-    // Simulate: P2 goes WAITING
-    CHECK(h.pm.blockProcess(2));
-    auto p2 = h.pm.getProcess(2);
-    CHECK(p2 != nullptr);
-    CHECK(p2->state == ProcessState::WAITING);
+    // P2 runs, fails to acquire the held mutex, and the ProcessManager blocks it
+    CHECK(h.pm.dispatch(p2)); // preempts P1 back to READY
+    CHECK_FALSE(h.sync.lockMutex("M1", p2));
+    CHECK(h.pm.blockProcess(p2)); // RUNNING -> WAITING
+    auto* p2pcb = h.pm.getProcess(p2);
+    REQUIRE(p2pcb != nullptr);
+    CHECK(p2pcb->state == ProcessState::WAITING);
 
-    // P1 releases, P2 woken
-    int next = h.sync.unlockMutex("M1", 1);
-    CHECK(next == 2);
+    // P1 releases the mutex; P2 is the next waiter
+    int next = h.sync.unlockMutex("M1", p1);
+    CHECK(next == p2);
 
-    // ProcessManager would call wakeProcess(2)
-    CHECK(h.pm.wakeProcess(2));
-    CHECK(p2->state == ProcessState::READY);
+    // The OS wakes P2 (WAITING -> READY)
+    CHECK(h.pm.wakeProcess(p2));
+    CHECK(p2pcb->state == ProcessState::READY);
 }
 
 TEST_CASE("T-SYNC-015: Process blocks on semaphore via ProcessManager") {
     SyncHarness h;
     h.sync.createSemaphore("S1", 1);
 
-    CHECK(h.sync.waitSemaphore("S1", 1));  // acquired
-    CHECK_FALSE(h.sync.waitSemaphore("S1", 2)); // blocked
+    const int p1 = h.createReadyProcess("p1");
+    const int p2 = h.createReadyProcess("p2");
 
-    CHECK(h.pm.blockProcess(2));
-    auto p2 = h.pm.getProcess(2);
-    CHECK(p2->state == ProcessState::WAITING);
+    // P1 runs and acquires the semaphore (count 1 -> 0)
+    CHECK(h.pm.dispatch(p1));
+    CHECK(h.sync.waitSemaphore("S1", p1));
 
+    // P2 runs, finds the count exhausted, and is blocked by the ProcessManager
+    CHECK(h.pm.dispatch(p2)); // preempts P1 back to READY
+    CHECK_FALSE(h.sync.waitSemaphore("S1", p2));
+    CHECK(h.pm.blockProcess(p2)); // RUNNING -> WAITING
+    auto* p2pcb = h.pm.getProcess(p2);
+    REQUIRE(p2pcb != nullptr);
+    CHECK(p2pcb->state == ProcessState::WAITING);
+
+    // Signal wakes the blocked waiter
     int next = h.sync.signalSemaphore("S1");
-    CHECK(next == 2);
+    CHECK(next == p2);
 
-    CHECK(h.pm.wakeProcess(2));
-    CHECK(p2->state == ProcessState::READY);
+    CHECK(h.pm.wakeProcess(p2));
+    CHECK(p2pcb->state == ProcessState::READY);
 }
 
 // ============================================================================

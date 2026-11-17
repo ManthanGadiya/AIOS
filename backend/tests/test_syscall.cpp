@@ -90,12 +90,18 @@ TEST_CASE("T-SC-005: EXIT terminates the calling process") {
     CHECK(h.pm.getProcess(pid)->state == ProcessState::TERMINATED);
 }
 
-TEST_CASE("T-SC-006: IPC_SEND and IO_REQUEST are recognized but unsupported") {
+TEST_CASE("T-SC-006: IPC_SEND is a stub; IO_REQUEST needs an I/O manager") {
     Harness h;
+    // IPC_SEND rejects a missing payload before it reaches the stub.
     CHECK(h.syscalls.handleSystemCall(SyscallRequest{1, SYSCALL_IPC_SEND}).status ==
+          SyscallStatus::INVALID);
+    // With a payload the call is recognized but still unsupported
+    // (IPCManager integration is pending; docs/10).
+    CHECK(h.syscalls.handleSystemCall(SyscallRequest{1, SYSCALL_IPC_SEND, "2:TASK:hi"}).status ==
           SyscallStatus::UNSUPPORTED);
+    // IO_REQUEST reports ERR when no I/O manager is attached to the harness.
     CHECK(h.syscalls.handleSystemCall(SyscallRequest{1, SYSCALL_IO_REQUEST}).status ==
-          SyscallStatus::UNSUPPORTED);
+          SyscallStatus::ERR);
 }
 
 TEST_CASE("T-SC-007: unknown syscall numbers return INVALID") {

@@ -312,11 +312,16 @@ TEST_CASE("T-IPC-017: Reset clears all state") {
     h.ipc.createChannel(1);
     h.ipc.grantPermission(1, 2);
     h.ipc.sendMessage(1, 2, "MSG", "test");
+    h.ipc.revokePermission(1, 2);
+    // The explicit deny is in effect before the reset.
+    CHECK_FALSE(h.ipc.checkPermission(1, 2));
 
     h.ipc.reset();
 
     CHECK_FALSE(h.ipc.getChannel(1).has_value());
-    CHECK_FALSE(h.ipc.checkPermission(1, 2));
+    // Reset clears the explicit deny, so the manager returns to its
+    // documented default-allow policy (docs/10 section 27).
+    CHECK(h.ipc.checkPermission(1, 2));
     auto stats = h.ipc.getStatistics();
     CHECK(stats.messagesSent == 0);
     CHECK(stats.messagesReceived == 0);
