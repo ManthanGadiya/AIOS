@@ -107,3 +107,38 @@ TEST_CASE("T-IO-003: unknown device ids are rejected by error/recover") {
     CHECK(h.io.listDevices().size() == 1);
     CHECK(h.io.getAllDevices().size() == 1);
 }
+
+TEST_CASE("T-IO-004: queued requests start automatically after each completion") {
+    IOHarness h;
+    REQUIRE(h.io.createDevice("DISK2", DeviceType::DISK, 2));
+    // Each process is dispatched just before its request so it is RUNNING
+    // when blockProcess runs (dispatching one would preempt the previous).
+    // First request starts immediately; the rest queue behind it.
+    const int p1 = h.createRunningProcess("p1");
+    REQUIRE(h.io.requestIO(p1, "DISK2", IOOperation::WRITE, "a") > 0);
+    REQUIRE(h.pm.blockProcess(p1));
+    const int p2 = h.createRunningProcess("p2");
+    REQUIRE(h.io.requestIO(p2, "DISK2", IOOperation::WRITE, "b") > 0);
+    REQUIRE(h.pm.blockProcess(p2));
+    const int p3 = h.createRunningProcess("p3");
+    REQUIRE(h.io.requestIO(p3, "DISK2", IOOperation::WRITE, "c") > 0);
+    REQUIRE(h.pm.blockProcess(p3));
+    auto device = h.io.getDevice("DISK2");
+    REQUIRE(device.has_value());
+    CHECK(device->queue().size() == 2);
+
+    // Tick enough cycles for all three 2-cycle requests to drain (FIFO).
+    for (int cycle = 0; cycle < 20; ++cycle) {
+        h.clock.tick();
+        h.io.tick();
+    }
+    device = h.io.getDevice("DISK2");
+    REQUIRE(device.has_value());
+    CHECK(device->queue().empty());
+    CHECK(device->state() == DeviceState::AVAILABLE);
+    CHECK(h.io.getStatistics().completedRequests == 3);
+    // Every owner was woken, none are stranded in WAITING.
+    CHECK(h.pm.getProcess(p1)->state == ProcessState::READY);
+    CHECK(h.pm.getProcess(p2)->state == ProcessState::READY);
+    CHECK(h.pm.getProcess(p3)->state == ProcessState::READY);
+}

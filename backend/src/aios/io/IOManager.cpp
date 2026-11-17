@@ -584,6 +584,14 @@ void IOManager::tick() {
                 if (processes_) {
                     processes_->wakeProcess(req.pid);
                 }
+                // Pull the next queued request onto the idle device (FIFO,
+                // docs/11). Without this the queue only drains when a new
+                // submission arrives and everything behind it stays WAITING.
+                if (device.canAcceptRequest() && !device.queue().empty()) {
+                    device.startProcessing();
+                    record(EventType::IO_REQUEST, INVALID_PID,
+                           "I/O dequeued next request on " + devId);
+                }
             }
         }
     }
