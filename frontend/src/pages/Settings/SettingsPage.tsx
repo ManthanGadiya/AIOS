@@ -1,5 +1,5 @@
 // Settings Page - Configuration per docs/13_GUI_Architecture.md section 27
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../../services/api';
 import type { SchedulingPolicy } from '../../types/os';
 
@@ -77,8 +77,16 @@ export function SettingsPage() {
     }
   };
 
-  const handleProcessCountChange = async (count: number) => {
-    setProcessCount(count);
+  // The range input fires onChange for every intermediate value while
+  // dragging, and SET_PROCESS_COUNT creates/terminates real processes on the
+  // engine - a per-step command pile-up spawns dozens of processes per drag.
+  // Debounce so one drag commits a single command for the final value.
+  const countCommitTimer = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (countCommitTimer.current !== null) window.clearTimeout(countCommitTimer.current);
+  }, []);
+
+  const commitProcessCount = async (count: number) => {
     setSaving(true);
     setMessage(null);
     try {
@@ -87,14 +95,21 @@ export function SettingsPage() {
         setMessage({type: 'success', text: `Process count set to ${count}`});
       } else {
         setMessage({type: 'error', text: res.error || 'Failed to set process count'});
-        setProcessCount(3); // Revert on error
       }
     } catch {
       setMessage({type: 'error', text: 'Network error'});
-      setProcessCount(3);
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleProcessCountChange = (count: number) => {
+    setProcessCount(count);
+    if (countCommitTimer.current !== null) window.clearTimeout(countCommitTimer.current);
+    countCommitTimer.current = window.setTimeout(() => {
+      countCommitTimer.current = null;
+      void commitProcessCount(count);
+    }, 400);
   };
 
   const handleReset = async () => {
