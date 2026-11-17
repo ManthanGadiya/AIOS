@@ -676,6 +676,64 @@ void ApiServer::setupRoutes() {
             } else if (command == "RUN_SCENARIO") {
                 std::cout << "[ApiServer] RUN_SCENARIO: " << payload.value("scenario", std::string("basic_multiprogramming")) << " (workload preloaded)" << std::endl;
                 success = true;
+            } else if (command == "SET_PROCESS_COUNT") {
+                int targetCount = payload.value("count", 3);
+                if (targetCount < 1 || targetCount > 10) {
+                    error = "Process count must be between 1 and 10";
+                } else if (pm_ && cpu_ && clock_ && log_ && sched_ && mm_) {
+                    // Count existing NORMAL processes
+                    std::vector<int> normalPids;
+                    for (int pid = 0; pid < 256; ++pid) {
+                        auto* pcb = pm_->getProcess(pid);
+                        if (pcb && pcb->type == ProcessType::NORMAL) {
+                            normalPids.push_back(pid);
+                        }
+                    }
+                    int currentCount = static_cast<int>(normalPids.size());
+                    
+                    if (targetCount > currentCount) {
+                        // Create additional processes
+                        for (int i = currentCount; i < targetCount; ++i) {
+                            std::string name = "P" + std::to_string(i + 1);
+                            const auto prog = makeProgram(100);
+                            int pid = pm_->createProcess(name, 1, prog, 0, ProcessType::NORMAL);
+                            if (pid != INVALID_PID) {
+                                pm_->admit(pid);
+                            }
+                        }
+                        success = true;
+                    } else if (targetCount < currentCount) {
+                        // Terminate excess processes (highest PIDs first)
+                        std::sort(normalPids.begin(), normalPids.end(), std::greater<int>());
+                        for (int i = 0; i < currentCount - targetCount; ++i) {
+                            pm_->terminate(normalPids[i]);
+                        }
+                        success = true;
+                    } else {
+                        success = true; // Already at target
+                    }
+                } else {
+                    error = "Required components not initialized";
+                }
+            } else if (command == "SET_CLOCK_SPEED") {
+                int speed = payload.value("speed", 1);
+                if (speed < 1 || speed > 10) {
+                    error = "Clock speed must be between 1 and 10";
+                } else {
+                    // Clock speed is handled in the sim loop (main.cpp); runtime change not yet wired.
+                    // Accept the command for UI compatibility.
+                    success = true;
+                }
+            } else if (command == "SET_QUANTUM") {
+                int quantum = payload.value("quantum", 4);
+                if (quantum < 1 || quantum > 20) {
+                    error = "Quantum must be between 1 and 20";
+                } else if (sched_) {
+                    sched_->setTimeQuantum(static_cast<uint64_t>(quantum));
+                    success = true;
+                } else {
+                    error = "Scheduler not initialized";
+                }
             } else if (command == "SYSCALL") {
                 int pid = payload.value("pid", -1);
                 int syscallNumber = payload.value("syscallNumber", -1);
@@ -1508,6 +1566,9 @@ void ApiServer::setupRoutes() {
             const auto agentProg = makeProgram(150);
             int pid = aiAgents_->createAgent(name, type, priority, agentProg, 0, tokenBudget);
             bool success = pid != INVALID_PID;
+            if (success && pm_) {
+                pm_->admit(pid);
+            }
 
             json response;
             response["success"] = success;
